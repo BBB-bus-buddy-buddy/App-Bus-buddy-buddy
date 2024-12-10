@@ -1,118 +1,177 @@
-/**
- * Sample React Native App
- * https://github.com/facebook/react-native
- *
- * @format
- */
-
-import React from 'react';
-import type {PropsWithChildren} from 'react';
+import React, {useEffect} from 'react';
 import {
-  SafeAreaView,
-  ScrollView,
-  StatusBar,
-  StyleSheet,
-  Text,
-  useColorScheme,
-  View,
-} from 'react-native';
+  NavigationContainer,
+  NavigationProp,
+  useNavigation,
+} from '@react-navigation/native';
+import {createNativeStackNavigator} from '@react-navigation/native-stack';
+import axios from 'axios';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import {SafeAreaProvider} from 'react-native-safe-area-context';
+import useModalState from './store/useModalStore';
+import MyInfoModal from './components/MyInfoModal';
 
-import {
-  Colors,
-  DebugInstructions,
-  Header,
-  LearnMoreLinks,
-  ReloadInstructions,
-} from 'react-native/Libraries/NewAppScreen';
+// 페이지 imports
+import LoginPage from './pages/LoginPage';
+import EnterCodePage from './pages/EnterCodePage';
+import LoadingPage from './pages/LoadingPage';
+import HomePage from './pages/HomePage';
+import BusListPage from './pages/BusListPage';
+import BusRoutePage from './pages/BusRoutePage';
+import {Alert} from 'react-native';
+// 네비게이션 타입 정의
+export type RootStackParamList = {
+  Login: undefined;
+  EnterCode: {token?: string};
+  Loading: undefined;
+  Home: {token?: string};
+  BusDirection: undefined;
+  BusList: undefined;
+  BusRoute: {busNumber: string};
+  Admin: undefined;
+  AdminBusStation: undefined;
+  AdminBusStationCreate: undefined;
+  AdminBusStationEdit: {stationId: string};
+  AdminBusList: undefined;
+  AdminBusCreate: undefined;
+  AdminBusEdit: {busNumber: string};
+};
 
-type SectionProps = PropsWithChildren<{
-  title: string;
-}>;
+const Stack = createNativeStackNavigator<RootStackParamList>();
 
-function Section({children, title}: SectionProps): React.JSX.Element {
-  const isDarkMode = useColorScheme() === 'dark';
+// Axios 인터셉터 설정
+axios.interceptors.request.use(
+  async config => {
+    try {
+      const token = await AsyncStorage.getItem('token');
+      if (token) {
+        config.headers['Authorization'] = `Bearer ${token}`;
+      }
+    } catch (error) {
+      console.error('Token fetch error:', error);
+    }
+    return config;
+  },
+  error => {
+    return Promise.reject(error);
+  },
+);
+
+const App = () => {
+  const {modalName, isModal} = useModalState();
+
   return (
-    <View style={styles.sectionContainer}>
-      <Text
-        style={[
-          styles.sectionTitle,
-          {
-            color: isDarkMode ? Colors.white : Colors.black,
-          },
-        ]}>
-        {title}
-      </Text>
-      <Text
-        style={[
-          styles.sectionDescription,
-          {
-            color: isDarkMode ? Colors.light : Colors.dark,
-          },
-        ]}>
-        {children}
-      </Text>
-    </View>
+      <SafeAreaProvider>
+        <NavigationContainer>
+          <Stack.Navigator
+            initialRouteName="Login"
+            screenOptions={{
+              headerShown: false,
+            }}>
+            <Stack.Screen name="Login" component={LoginPage} />
+            <Stack.Screen name="EnterCode" component={EnterCodePage} />
+            <Stack.Screen name="Loading" component={LoadingPage} />
+            <Stack.Screen name="Home" component={HomePage} />
+            <Stack.Screen name="BusList" component={BusListPage} />
+            <Stack.Screen
+              name="BusRoute"
+              component={BusRoutePage}
+              options={({route}: any) => ({
+                title: `${route.params.busNumber} 버스`,
+                headerShown: true,
+              })}
+            />
+
+            {/* Admin Routes
+          <Stack.Screen 
+            name="Admin"
+            component={AdminPage}
+            options={{ headerShown: true, title: '관리자 페이지' }}
+          />
+          <Stack.Screen
+            name="AdminBusStation"
+            component={BusStationPage}
+            options={{ headerShown: true, title: '정류장 관리' }}
+          />
+          <Stack.Screen
+            name="AdminBusStationCreate"
+            component={AdminBusStationCreatePage}
+            options={{ headerShown: true, title: '정류장 추가' }}
+          />
+          <Stack.Screen
+            name="AdminBusStationEdit"
+            component={BusStationEditPage}
+            options={{ headerShown: true, title: '정류장 수정' }}
+          />
+          <Stack.Screen
+            name="AdminBusList"
+            component={AdminBusListPage}
+            options={{ headerShown: true, title: '버스 관리' }}
+          />
+          <Stack.Screen
+            name="AdminBusCreate"
+            component={AdminBusCreatePage}
+            options={{ headerShown: true, title: '버스 추가' }}
+          />
+          <Stack.Screen
+            name="AdminBusEdit"
+            component={AdminBusEditPage}
+            options={{ headerShown: true, title: '버스 수정' }}
+          /> */}
+          </Stack.Navigator>
+
+          {/* Modals */}
+          {isModal && modalName === 'myInfoModal' && <MyInfoModal />}
+        </NavigationContainer>
+      </SafeAreaProvider>
   );
-}
+};
 
-function App(): React.JSX.Element {
-  const isDarkMode = useColorScheme() === 'dark';
+// 인증 체크 HOC
+export const withAuth = (WrappedComponent: React.ComponentType) => {
+  return function WithAuthComponent(props: any) {
+    const navigation = useNavigation<NavigationProp<RootStackParamList>>();
+    useEffect(() => {
+      const checkAuth = async () => {
+        const token = await AsyncStorage.getItem('token');
+        if (!token) {
+          navigation.navigate('Login');
+        }
+      };
 
-  const backgroundStyle = {
-    backgroundColor: isDarkMode ? Colors.darker : Colors.lighter,
+      checkAuth();
+    }, [navigation]);
+
+    return <WrappedComponent {...props} />;
   };
+};
 
-  return (
-    <SafeAreaView style={backgroundStyle}>
-      <StatusBar
-        barStyle={isDarkMode ? 'light-content' : 'dark-content'}
-        backgroundColor={backgroundStyle.backgroundColor}
-      />
-      <ScrollView
-        contentInsetAdjustmentBehavior="automatic"
-        style={backgroundStyle}>
-        <Header />
-        <View
-          style={{
-            backgroundColor: isDarkMode ? Colors.black : Colors.white,
-          }}>
-          <Section title="Step One">
-            Edit <Text style={styles.highlight}>App.tsx</Text> to change this
-            screen and then come back to see your edits.
-          </Section>
-          <Section title="See Your Changes">
-            <ReloadInstructions />
-          </Section>
-          <Section title="Debug">
-            <DebugInstructions />
-          </Section>
-          <Section title="Learn More">
-            Read the docs to discover what to do next:
-          </Section>
-          <LearnMoreLinks />
-        </View>
-      </ScrollView>
-    </SafeAreaView>
-  );
-}
+// 관리자 권한 체크 HOC
+export const withAdmin = (WrappedComponent: React.ComponentType) => {
+  return function WithAdminComponent(props: any) {
+    const navigation = useNavigation<NavigationProp<RootStackParamList>>();
 
-const styles = StyleSheet.create({
-  sectionContainer: {
-    marginTop: 32,
-    paddingHorizontal: 24,
-  },
-  sectionTitle: {
-    fontSize: 24,
-    fontWeight: '600',
-  },
-  sectionDescription: {
-    marginTop: 8,
-    fontSize: 18,
-    fontWeight: '400',
-  },
-  highlight: {
-    fontWeight: '700',
-  },
-});
+    useEffect(() => {
+      const checkAdminAuth = async () => {
+        try {
+          const response = await axios.get(
+            'http://devse.gonetis.com:12589/api/auth/user',
+          );
+          if (response.data?.role !== 'ADMIN') {
+            Alert.alert('권한 없음', '관리자 권한이 필요합니다.');
+            navigation.goBack();
+          }
+        } catch (error) {
+          console.error('Admin check error:', error);
+          navigation.navigate('Login');
+        }
+      };
+
+      checkAdminAuth();
+    }, [navigation]);
+
+    return <WrappedComponent {...props} />;
+  };
+};
 
 export default App;

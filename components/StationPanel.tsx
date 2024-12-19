@@ -206,13 +206,15 @@ const StationPanel: React.FC<StationPanelProps> = ({
         {selectedStation ? selectedStation.name : '즐겨찾는 정류장'}
       </Text>
       
+      {/* 정류장 패널의 검색버튼 -> 상단 검색창으로 통합
       <TouchableOpacity
         style={styles.searchButton}
         onPress={() => openModal('minSearchModal')}
         hitSlop={{ top: 10, right: 10, bottom: 10, left: 10 }}
       >
         <SearchIcon />
-      </TouchableOpacity>
+      </TouchableOpacity> 
+      */}
     </View>
   );
 

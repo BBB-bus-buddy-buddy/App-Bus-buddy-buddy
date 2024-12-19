@@ -1,0 +1,118 @@
+# Repository 설정을 위한 ruleset
+
+# 커밋/PR 메시지 컨벤션 규칙
+# 기본 구조: <type>(<scope>): <Description>
+#           첫 글자는 반드시 대문자로 시작
+#
+# 1. Type (필수)
+#    - Feat     : 새로운 기능 추가
+#    - Fix      : 버그 수정
+#    - Docs     : 문서 수정/추가
+#    - Style    : 코드 포맷팅, 세미콜론 누락, 코드 변경이 없는 경우
+#    - Refactor : 코드 리팩토링
+#    - Test     : 테스트 코드 추가/수정
+#    - Chore    : 빌드 업무 수정, 패키지 매니저 수정
+#
+# 2. Scope (선택)
+#    영향을 받는 범위나 기능을 명시
+#    예: auth, user, cart, order
+#
+# 3. Description (필수)
+#    - 변경사항에 대한 간단한 설명
+#    - 50자 이내로 작성
+#    - 현재형 시제 사용 ("변경했음" X, "변경" O)
+#    - 첫 글자는 반드시 대문자
+#
+# 예시:
+# ✅ 좋은 예:
+#    - Feat(auth): 소셜 로그인 기능 추가
+#    - Fix(cart): 장바구니 상품 삭제 시 새로고침 오류 수정
+#    - Docs(readme): API 문서 업데이트
+#    - Refactor(user): 회원가입 로직 개선
+#    - Test(order): 주문 취소 테스트 케이스 추가
+#
+# ❌ 나쁜 예:
+#    - Feat(auth): 소셜 로그인 기능을 추가함 (➡️ 간단하게 명사형으로 종결해야 함
+#    - Fix(cart): 버그수정 (➡️ 부족한 설명)
+#    - Feat: 기능추가했음 (➡️ 동사형 종결어미, '~~~기능 추가 완료'로 수정해야 함)
+#    - Style(user): 코드를 수정했습니다 (➡️ 동사형 종결어미, 어떤 내용으로 수정했는지 설명이 없음)
+
+rules:
+  # 브랜치 제한 규칙
+  - id: branch_restriction
+    type: branch
+    parameters:
+      allowed_branches: ['release', 'main', 'dev', 'dev-um', 'dev-hun']
+      error_message: '허용된 브랜치 이름만 사용할 수 있습니다.'
+
+  # 브랜치 보호 규칙
+  - id: branch_protection
+    type: branch_protection
+    parameters:
+      pattern: '(release|main|dev)'
+      settings:
+        required_signatures: true
+        required_linear_history: true
+        allow_force_pushes: false
+        allow_deletions: false
+        required_pull_request_reviews:
+          dismiss_stale_reviews: true
+          require_code_owner_reviews: true
+          required_approving_review_count: 1
+
+  # Pull Request & Commit 통합 규칙
+  - id: unified_message_convention
+    type: pull_request
+    parameters:
+      title_pattern: '^(feat|fix|docs|style|refactor|test|chore)(\([a-z-]+\))?: [A-Z].{1,49}$'
+      description_pattern: '.{10,}'
+      checks:
+        - context: 'one-feature-per-pr'
+          description: '하나의 PR은 하나의 기능만 포함해야 하며, 커밋 메시지와 일치해야 합니다.'
+      
+  - id: commit_naming
+    type: commit
+    parameters:
+      pattern: '^(feat|fix|docs|style|refactor|test|chore)(\([a-z-]+\))?: [A-Z].{1,49}$'
+      message: 'Commit 메시지는 PR 제목과 일치해야 하며, 컨벤션을 따라야 합니다. 설명의 첫 글자는 대문자여야 합니다.'
+
+# 브랜치별 접근 권한 및 PR 제한 설정
+branch_policies:
+  # 개발자 브랜치 설정
+  - name: 'dev-um'
+    owner: 'jsum01'
+    restrictions:
+      users: ['jsum01']
+    allowed_pr_targets: ['dev']
+      
+  - name: 'dev-hun'
+    owner: 'taehun2123'
+    restrictions:
+      users: ['taehun2123']
+    allowed_pr_targets: ['dev']
+
+  # 주요 브랜치 설정
+  - name: 'dev'
+    restrictions:
+      teams: ['developers']
+    allowed_pr_targets: ['main']
+    
+  - name: 'main'
+    restrictions:
+      teams: ['maintainers']
+    allowed_pr_targets: ['release']
+    
+  - name: 'release'
+    restrictions:
+      teams: ['release-managers']
+    allowed_pr_targets: []
+
+# PR 흐름 제한
+pull_request_flows:
+  restrictions:
+    - source: 'dev-um|dev-hun'
+      target: ['dev']
+    - source: 'dev'
+      target: ['main']
+    - source: 'main'
+      target: ['release']

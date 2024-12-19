@@ -3,8 +3,8 @@ buildscript {
         buildToolsVersion = "35.0.0"
         minSdkVersion = 24
         compileSdkVersion = 35
-        targetSdkVersion = 34
-        ndkVersion = "26.1.10909125"
+        targetSdkVersion = 35
+        ndkVersion = "27.2.12479018" // 공식문서 상, 가장 최신의 LTS 버전
         kotlinVersion = "1.9.24"
     }
     repositories {

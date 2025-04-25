@@ -8,6 +8,8 @@ import {
   NaverMapView,
 } from '@mj-studio/react-native-naver-map';
 import useSelectedStationStore from '../store/useSelectedStationStore';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import axios from 'axios';
 
 interface Station {
   id: string;
@@ -24,6 +26,10 @@ interface BusPosition {
     coordinates: [number, number];
   };
 }
+const API_BASE_URL = Platform.select({
+  ios: 'http://localhost:8088',
+  android: 'http://localhost:8088',
+});
 
 const MapViewComponent = () => {
   const websocketRef = useRef<WebSocket | null>(null);
@@ -66,8 +72,18 @@ const MapViewComponent = () => {
 
   const fetchStations = useCallback(async () => {
     try {
-      const response = await fetch('http://localhost:8088/api/station');
-      const data = await response.json();
+      const token = await AsyncStorage.getItem('token');
+      const response = await axios.get(
+        `${API_BASE_URL}/api/station`,
+        {
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`,
+          },
+        }
+      );
+  
+      const data = response.data;
       setStationPositions(data.data);
     } catch (error) {
       console.error('Station fetch error:', error);

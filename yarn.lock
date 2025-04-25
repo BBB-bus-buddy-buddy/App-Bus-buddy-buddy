@@ -1604,7 +1604,7 @@
     "@babel/traverse" "^7.25.3"
     "@react-native/codegen" "0.78.2"
 
-"@react-native/babel-preset@0.78.2", "@react-native/babel-preset@^0.78.0":
+"@react-native/babel-preset@0.78.2", "@react-native/babel-preset@^0.78.2":
   version "0.78.2"
   resolved "https://registry.yarnpkg.com/@react-native/babel-preset/-/babel-preset-0.78.2.tgz#f02c53dc44e7820b25c4ffbc64159bb65be2d72e"
   integrity sha512-VGOLhztQY/0vktMXrBr01HUN/iBSdkKBRiiZYfrLqx9fB2ql55gZb/6X9lzItjVyYoOc2jyHXSX8yoSfDcWDZg==
@@ -1707,14 +1707,14 @@
     serve-static "^1.16.2"
     ws "^6.2.3"
 
-"@react-native/eslint-config@0.79.0":
-  version "0.79.0"
-  resolved "https://registry.yarnpkg.com/@react-native/eslint-config/-/eslint-config-0.79.0.tgz#a2d136b07a1a000095389e58675dd6dbba818130"
-  integrity sha512-t0Em/GAuDESlWLvHf7Dr7L0OB2tWreLQeSKJZi2GKNEDmPV4NZFJFpD5tYxCiZsWuxUejuDMY4Uhvm46jgYb4A==
+"@react-native/eslint-config@0.78.2":
+  version "0.78.2"
+  resolved "https://registry.yarnpkg.com/@react-native/eslint-config/-/eslint-config-0.78.2.tgz#8a3cd091e3dba8bde3f192401dd1cb4057461a52"
+  integrity sha512-9j78XWShZtJrcwRXtYJXnqspCNwGHYiphRXUbs3KdGI8YYKEHk0WD85OKvd5avd9jJkqWIC0Xk/OIDbyWIaIxA==
   dependencies:
     "@babel/core" "^7.25.2"
     "@babel/eslint-parser" "^7.25.1"
-    "@react-native/eslint-plugin" "0.79.0"
+    "@react-native/eslint-plugin" "0.78.2"
     "@typescript-eslint/eslint-plugin" "^7.1.1"
     "@typescript-eslint/parser" "^7.1.1"
     eslint-config-prettier "^8.5.0"
@@ -1725,10 +1725,10 @@
     eslint-plugin-react-hooks "^4.6.0"
     eslint-plugin-react-native "^4.0.0"
 
-"@react-native/eslint-plugin@0.79.0":
-  version "0.79.0"
-  resolved "https://registry.yarnpkg.com/@react-native/eslint-plugin/-/eslint-plugin-0.79.0.tgz#1c60932b21dea695fcb3be0be51f2fc1402ef6ad"
-  integrity sha512-hbmVSkm3QE5u619CBQv9fVXE8AosuvU7a4Ju6UW3+CXtV/1pYVGsvPaQrKSH5nQAW29zTYKxwhkW7uo9kWrSFA==
+"@react-native/eslint-plugin@0.78.2":
+  version "0.78.2"
+  resolved "https://registry.yarnpkg.com/@react-native/eslint-plugin/-/eslint-plugin-0.78.2.tgz#48521a14fb6a9120b542e61b8a60576db5850b35"
+  integrity sha512-M5IXc5fenRCSYdkGu05u7ep8LVwNyLjIXyYlkTQDMC/xJqTFauhGdCRv2E9x7TxMho+L4ieI1XISmoT84S10FA==
 
 "@react-native/gradle-plugin@0.78.2":
   version "0.78.2"
@@ -1750,7 +1750,7 @@
     hermes-parser "0.25.1"
     nullthrows "^1.1.1"
 
-"@react-native/metro-config@^0.78.0":
+"@react-native/metro-config@^0.78.2":
   version "0.78.2"
   resolved "https://registry.yarnpkg.com/@react-native/metro-config/-/metro-config-0.78.2.tgz#4d5894d41530087f0238c015a71abee9135a3f0f"
   integrity sha512-n4wL9p4vRDuvKiVChMifnpeWvAoWIniT2w9P4WuNflmU5+A7kS5QDviBYJqfCPh0OSzeaXMtlh8FEVUmtBCjiQ==
@@ -1765,10 +1765,10 @@
   resolved "https://registry.yarnpkg.com/@react-native/normalize-colors/-/normalize-colors-0.78.2.tgz#0fc6b1eb5ebe8ba8ce2493b2f67fa28cfdb82717"
   integrity sha512-CA/3ynRO6/g1LDbqU8ewrv0js/1lU4+j04L7qz6btXbLTDk1UkF+AfpGRJGbIVY9UmFBJ7l1AOmzwutrWb3Txw==
 
-"@react-native/typescript-config@0.79.0":
-  version "0.79.0"
-  resolved "https://registry.yarnpkg.com/@react-native/typescript-config/-/typescript-config-0.79.0.tgz#9f4a7799f3d503207642fb8de5955f855de690af"
-  integrity sha512-Zt3TRh7MVuWNZgPbhYWPSCL14dS0CyXZymTi7KLI3Bq/41cCOfMj3JZxX6y76L8Hs0jG5fMIGJ+Hwt2gK5RCiA==
+"@react-native/typescript-config@0.78.2":
+  version "0.78.2"
+  resolved "https://registry.yarnpkg.com/@react-native/typescript-config/-/typescript-config-0.78.2.tgz#08cc67c0199b72013a24538c64086431577b32aa"
+  integrity sha512-hgsof1uirO3TuIV2Q1LXp6KYfVZq2aR2HPTV2ciHsLHDUbo/j5wQgdQQf9Dw9QJOyDdfLeY9Jo0cY7F1Rw7KSg==
 
 "@react-native/virtualized-lists@0.78.2":
   version "0.78.2"

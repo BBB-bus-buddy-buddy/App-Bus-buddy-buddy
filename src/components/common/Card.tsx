@@ -1,5 +1,12 @@
 import React from 'react';
-import { View, StyleSheet, ViewProps, StyleProp, ViewStyle, TouchableOpacity } from 'react-native';
+import {
+  View,
+  StyleSheet,
+  ViewProps,
+  StyleProp,
+  ViewStyle,
+  TouchableOpacity,
+} from 'react-native';
 import theme from '../../theme';
 
 interface CardProps extends ViewProps {
@@ -26,7 +33,7 @@ const Card: React.FC<CardProps> = ({
       typeof padding === 'number'
         ? padding
         : theme.spacing[padding] ?? theme.spacing.md; // fallback 처리
-    cardStyles.push({ padding: paddingValue });
+    cardStyles.push({padding: paddingValue});
 
     // 변형에 따른 스타일 적용
     switch (variant) {
@@ -49,8 +56,7 @@ const Card: React.FC<CardProps> = ({
         style={getCardStyle()}
         onPress={onPress}
         activeOpacity={0.7}
-        {...rest}
-      >
+        {...rest}>
         {children}
       </TouchableOpacity>
     );

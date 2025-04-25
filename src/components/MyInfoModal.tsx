@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useRef } from 'react';
+import React, {useEffect, useState, useRef} from 'react';
 import {
   View,
   Text,
@@ -11,12 +11,12 @@ import {
   Platform,
   Linking,
 } from 'react-native';
-import { useNavigation, NavigationProp } from '@react-navigation/native';
-import axios, { AxiosError } from 'axios';
-import { useModalActions, useModalState } from '../store/useModalStore';
+import {useNavigation, NavigationProp} from '@react-navigation/native';
+import axios, {AxiosError} from 'axios';
+import {useModalActions, useModalState} from '../store/useModalStore';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
-const { width } = Dimensions.get('window');
+const {width} = Dimensions.get('window');
 
 type RootStackParamList = {
   Login: undefined;
@@ -36,7 +36,7 @@ interface ApiResponse {
 
 const API_BASE_URL = Platform.select({
   ios: 'http://localhost:8088',
-  android: 'http://localhost:8088'
+  android: 'http://localhost:8088',
 });
 
 const MyInfoModal: React.FC = () => {
@@ -45,17 +45,17 @@ const MyInfoModal: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [isVisible, setIsVisible] = useState(false);
   const [isAnimating, setIsAnimating] = useState(false);
-  
+
   const navigation = useNavigation<NavigationProp<RootStackParamList>>();
-  const { isModal, modalName } = useModalState();
-  const { closeModal } = useModalActions();
+  const {isModal, modalName} = useModalState();
+  const {closeModal} = useModalActions();
   const slideAnim = useRef(new Animated.Value(-width)).current;
 
   const fetchUserData = async () => {
     try {
       setIsLoading(true);
       const token = await AsyncStorage.getItem('token');
-      
+
       if (!token) {
         throw new Error('No auth token found');
       }
@@ -64,12 +64,12 @@ const MyInfoModal: React.FC = () => {
         `${API_BASE_URL}/api/auth/user`,
         {
           headers: {
-            'Authorization': `Bearer ${token}`,
+            Authorization: `Bearer ${token}`,
             'Content-Type': 'application/json',
           },
-        }
+        },
       );
-      
+
       setUserData(response.data.data);
       setError(null);
     } catch (error) {
@@ -104,13 +104,13 @@ const MyInfoModal: React.FC = () => {
     return () => {
       slideAnim.setValue(-width);
     };
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isModal, modalName, slideAnim]);
 
   const handleLogout = async () => {
     try {
       const token = await AsyncStorage.getItem('token');
-      
+
       if (!token) {
         throw new Error('No auth token found');
       }
@@ -120,11 +120,11 @@ const MyInfoModal: React.FC = () => {
         {},
         {
           headers: {
-            'Authorization': `Bearer ${token}`,
+            Authorization: `Bearer ${token}`,
             'Content-Type': 'application/json',
           },
           withCredentials: true,
-        }
+        },
       );
 
       await AsyncStorage.removeItem('token');
@@ -141,13 +141,13 @@ const MyInfoModal: React.FC = () => {
       const email = 'devhundeveloper@gmail.com';
       const subject = encodeURIComponent('문의사항');
       const mailtoUrl = `mailto:${email}?subject=${subject}`;
-      
+
       const canOpen = await Linking.canOpenURL(mailtoUrl);
       if (!canOpen) {
         console.warn('메일 앱을 열 수 없습니다.');
         return;
       }
-      
+
       await Linking.openURL(mailtoUrl);
     } catch (error) {
       console.error('이메일 열기 실패:', error);
@@ -156,7 +156,7 @@ const MyInfoModal: React.FC = () => {
 
   const handleClose = () => {
     if (isAnimating) return;
-    
+
     setIsAnimating(true);
     Animated.timing(slideAnim, {
       toValue: -width,
@@ -178,19 +178,17 @@ const MyInfoModal: React.FC = () => {
       style={[
         styles.modalContent,
         {
-          transform: [{ translateX: slideAnim }],
+          transform: [{translateX: slideAnim}],
         },
       ]}
       onStartShouldSetResponder={() => true}
-      onTouchEnd={(e) => {
+      onTouchEnd={e => {
         e.stopPropagation();
-      }}
-    >
+      }}>
       <TouchableOpacity
         style={styles.closeButton}
         onPress={handleClose}
-        activeOpacity={0.7}
-      >
+        activeOpacity={0.7}>
         <Text style={styles.closeButtonText}>×</Text>
       </TouchableOpacity>
 
@@ -203,22 +201,16 @@ const MyInfoModal: React.FC = () => {
 
       <View style={styles.profileImageContainer}>
         {userData?.picture && (
-          <Image
-            source={{ uri: userData.picture }}
-            style={styles.profileImage}
-          />
+          <Image source={{uri: userData.picture}} style={styles.profileImage} />
         )}
       </View>
 
       <View style={styles.modalBody}>
-        <Text style={styles.schoolText}>
-          [{userData?.school}] 접속 상태
-        </Text>
+        <Text style={styles.schoolText}>[{userData?.school}] 접속 상태</Text>
         <TouchableOpacity
           style={styles.logoutButton}
           onPress={handleLogout}
-          activeOpacity={0.8}
-        >
+          activeOpacity={0.8}>
           <Text style={styles.logoutButtonText}>로그아웃</Text>
         </TouchableOpacity>
       </View>
@@ -244,17 +236,12 @@ const MyInfoModal: React.FC = () => {
       visible={isVisible}
       transparent={true}
       animationType="none"
-      onRequestClose={handleClose}
-    >
+      onRequestClose={handleClose}>
       <TouchableOpacity
         style={styles.overlay}
         activeOpacity={1}
-        onPress={handleClose}
-      >
-        <TouchableOpacity 
-          activeOpacity={1} 
-          onPress={handleContentPress}
-        >
+        onPress={handleClose}>
+        <TouchableOpacity activeOpacity={1} onPress={handleContentPress}>
           {renderModalContent()}
         </TouchableOpacity>
       </TouchableOpacity>

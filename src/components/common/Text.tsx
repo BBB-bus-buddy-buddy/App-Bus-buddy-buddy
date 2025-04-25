@@ -1,8 +1,14 @@
 import React from 'react';
-import { Text as RNText, StyleSheet, TextProps as RNTextProps, StyleProp, TextStyle } from 'react-native';
+import {
+  Text as RNText,
+  StyleSheet,
+  TextProps as RNTextProps,
+  StyleProp,
+  TextStyle,
+} from 'react-native';
 import theme from '../../theme';
 
-type TextVariant = 
+type TextVariant =
   | 'h1'
   | 'h2'
   | 'h3'
@@ -34,21 +40,25 @@ const Text: React.FC<TextProps> = ({
 }) => {
   const getTextStyle = (): StyleProp<TextStyle> => {
     const textStyles: StyleProp<TextStyle>[] = [];
-    
+
     // 변형에 따른 스타일 적용
     if (['h1', 'h2', 'h3', 'h4', 'h5'].includes(variant)) {
       textStyles.push(styles[variant]);
     } else {
       textStyles.push(styles[variant]);
-      textStyles.push({ fontWeight: theme.typography.fontWeight[weight] as TextStyle['fontWeight'] });
+      textStyles.push({
+        fontWeight: theme.typography.fontWeight[
+          weight
+        ] as TextStyle['fontWeight'],
+      });
     }
-    
+
     // 색상 적용
-    textStyles.push({ color });
-    
+    textStyles.push({color});
+
     return [textStyles, style];
   };
-  
+
   return (
     <RNText style={getTextStyle()} {...rest}>
       {children}

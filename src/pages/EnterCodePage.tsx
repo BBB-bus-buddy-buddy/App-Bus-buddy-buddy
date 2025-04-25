@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, {useState} from 'react';
 import {
   View,
   Text,
@@ -7,11 +7,11 @@ import {
   KeyboardAvoidingView,
   ScrollView,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
-import { NavigationProp, useNavigation } from '@react-navigation/native';
+import {SafeAreaView} from 'react-native-safe-area-context';
+import {NavigationProp, useNavigation} from '@react-navigation/native';
 import _Ionicons from 'react-native-vector-icons/Ionicons';
-import { authService } from '../api/services/authService';
-import { useToast } from '../components/common/Toast';
+import {authService} from '../api/services/authService';
+import {useToast} from '../components/common/Toast';
 import Button from '../components/common/Button';
 import Input from '../components/common/Input';
 import theme from '../theme';
@@ -30,10 +30,10 @@ const EnterCodePage: React.FC = () => {
   const [validationStatus, setValidationStatus] = useState<{
     isValid: boolean | null;
     message: string | null;
-  }>({ isValid: null, message: null });
+  }>({isValid: null, message: null});
 
   const navigation = useNavigation<NavigationProp<RootStackParamList>>();
-  const { showToast } = useToast();
+  const {showToast} = useToast();
 
   const handleCodeVerification = async () => {
     // 입력 유효성 검사
@@ -44,19 +44,19 @@ const EnterCodePage: React.FC = () => {
 
     try {
       setIsValidating(true);
-      
+
       // API 호출
       const result = await authService.rankUpUser(schoolCode);
-      
+
       // 결과 처리
       if (result) {
         setValidationStatus({
           isValid: true,
-          message: '인증이 성공적으로 완료되었습니다.'
+          message: '인증이 성공적으로 완료되었습니다.',
         });
-        
+
         showToast('인증이 완료되었습니다.', 'success');
-        
+
         // 잠시 후 홈 화면으로 이동
         setTimeout(() => {
           navigation.navigate('Home' as never);
@@ -64,24 +64,24 @@ const EnterCodePage: React.FC = () => {
       } else {
         setValidationStatus({
           isValid: false,
-          message: '유효하지 않은 인증 코드입니다.'
+          message: '유효하지 않은 인증 코드입니다.',
         });
       }
     } catch (error) {
       console.error('인증 코드 검증 오류:', error);
-      
+
       // 오류 메시지 설정
       let errorMessage = '인증 코드를 확인하는 중 오류가 발생했습니다.';
-      
+
       if (error instanceof Error) {
         errorMessage = error.message;
       }
-      
+
       setValidationStatus({
         isValid: false,
-        message: errorMessage
+        message: errorMessage,
       });
-      
+
       // 특수한 오류 처리
       if (errorMessage.includes('인증')) {
         showToast('로그인이 필요합니다.', 'error');
@@ -97,10 +97,10 @@ const EnterCodePage: React.FC = () => {
     // 숫자만 허용
     const numericText = text.replace(/[^0-9]/g, '');
     setSchoolCode(numericText);
-    
+
     // 입력 시작하면 이전 상태 초기화
     if (validationStatus.message) {
-      setValidationStatus({ isValid: null, message: null });
+      setValidationStatus({isValid: null, message: null});
     }
   };
 
@@ -108,12 +108,10 @@ const EnterCodePage: React.FC = () => {
     <SafeAreaView style={styles.container}>
       <KeyboardAvoidingView
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-        style={styles.keyboardAvoidingView}
-      >
+        style={styles.keyboardAvoidingView}>
         <ScrollView
           contentContainerStyle={styles.scrollContent}
-          keyboardShouldPersistTaps="handled"
-        >
+          keyboardShouldPersistTaps="handled">
           <View style={styles.contentWrapper}>
             {/* 로고 */}
             <View style={styles.logoContainer}>
@@ -126,12 +124,8 @@ const EnterCodePage: React.FC = () => {
             </View>
 
             {/* 타이틀 */}
-            <Text style={styles.title}>
-              버스 버디버디
-            </Text>
-            <Text style={styles.subtitle}>
-              기관 인증 코드 입력
-            </Text>
+            <Text style={styles.title}>버스 버디버디</Text>
+            <Text style={styles.subtitle}>기관 인증 코드 입력</Text>
 
             {/* 폼 */}
             <View style={styles.formContainer}>
@@ -142,7 +136,11 @@ const EnterCodePage: React.FC = () => {
                 placeholder="기관의 인증 코드를 입력하세요"
                 keyboardType="number-pad"
                 hint="관리자로부터 받은 기관 코드를 입력하세요."
-                error={validationStatus.isValid === false ? validationStatus.message ?? undefined : undefined}
+                error={
+                  validationStatus.isValid === false
+                    ? validationStatus.message ?? undefined
+                    : undefined
+                }
                 containerStyle={styles.inputContainer}
                 leftIcon={
                   <Ionicons
@@ -181,8 +179,7 @@ const EnterCodePage: React.FC = () => {
                       color={theme.colors.white}
                     />
                   ) : undefined
-                }
-              >
+                }>
                 인증하기
               </Button>
             </View>

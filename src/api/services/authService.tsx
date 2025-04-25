@@ -13,16 +13,16 @@ export const authService = {
     const response = await apiClient.get<UserInfo>('/api/auth/user');
     return response.data;
   },
-  
+
   // 로그아웃
   async logout(): Promise<boolean> {
     const response = await apiClient.post<boolean>('/api/auth/logout');
     return response.data;
   },
-  
+
   // 역할 업그레이드 (GUEST -> USER)
   async rankUpUser(code: string): Promise<boolean> {
-    const response = await apiClient.post<boolean>('/api/auth/rankUp', { code });
+    const response = await apiClient.post<boolean>('/api/auth/rankUp', {code});
     return response.data;
-  }
+  },
 };

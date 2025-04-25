@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, {useEffect, useRef, useState} from 'react';
 import {
   View,
   Text,
@@ -11,27 +11,29 @@ import {
   RefreshControl,
   TextStyle,
 } from 'react-native';
-import { useNavigation } from '@react-navigation/native';
-import { SafeAreaView } from 'react-native-safe-area-context';
-import { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import {useNavigation} from '@react-navigation/native';
+import {SafeAreaView} from 'react-native-safe-area-context';
+import {NativeStackNavigationProp} from '@react-navigation/native-stack';
 import _Ionicons from 'react-native-vector-icons/Ionicons';
 
 import Footer from '../components/Footer';
-import { useToast } from '../components/common/Toast';
-import { routeService, Route } from '../api/services/routeService';
+import {useToast} from '../components/common/Toast';
+import {routeService, Route} from '../api/services/routeService';
 import theme from '../theme';
 
 Dimensions.get('window');
 const Ionicons = _Ionicons as unknown as React.ElementType;
 
-
 // 네비게이션 타입 정의
 type RootStackParamList = {
-  BusList: { routeId: string; routeName: string };
-  BusRoute: { busNumber: string };
+  BusList: {routeId: string; routeName: string};
+  BusRoute: {busNumber: string};
 };
 
-type RouteListScreenNavigationProp = NativeStackNavigationProp<RootStackParamList, 'BusList'>;
+type RouteListScreenNavigationProp = NativeStackNavigationProp<
+  RootStackParamList,
+  'BusList'
+>;
 
 const RouteListPage: React.FC = () => {
   const [routeList, setRouteList] = useState<Route[]>([]);
@@ -39,7 +41,7 @@ const RouteListPage: React.FC = () => {
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const navigation = useNavigation<RouteListScreenNavigationProp>();
-  const { showToast } = useToast();
+  const {showToast} = useToast();
 
   // 노선 목록 불러오기
   const fetchRouteList = async () => {
@@ -63,7 +65,7 @@ const RouteListPage: React.FC = () => {
   // 초기 로딩
   useEffect(() => {
     fetchRouteList();
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // 새로고침 처리
@@ -74,24 +76,23 @@ const RouteListPage: React.FC = () => {
 
   // 노선 선택 시 해당 노선의 버스 목록 페이지로 이동
   const goToBusList = (route: Route) => {
-    navigation.navigate('BusList', { 
-      routeId: route.id, 
-      routeName: route.routeName 
+    navigation.navigate('BusList', {
+      routeId: route.id,
+      routeName: route.routeName,
     });
   };
 
   // 노선 아이템 렌더링
-  const renderRouteItem = ({ item }: { item: Route }) => (
+  const renderRouteItem = ({item}: {item: Route}) => (
     <TouchableOpacity
       style={styles.routeItem}
       onPress={() => goToBusList(item)}
-      activeOpacity={0.7}
-    >
+      activeOpacity={0.7}>
       <View style={styles.routeIconContainer}>
         <Ionicons
-          name="git-branch" 
-          size={30} 
-          color={theme.colors.primary.default} 
+          name="git-branch"
+          size={30}
+          color={theme.colors.primary.default}
         />
       </View>
       <View style={styles.routeInfo}>
@@ -100,10 +101,10 @@ const RouteListPage: React.FC = () => {
           {item.stations.length}개 정류장
         </Text>
       </View>
-      <Ionicons 
-        name="chevron-forward" 
-        size={20} 
-        color={theme.colors.gray[400]} 
+      <Ionicons
+        name="chevron-forward"
+        size={20}
+        color={theme.colors.gray[400]}
       />
     </TouchableOpacity>
   );
@@ -118,11 +119,7 @@ const RouteListPage: React.FC = () => {
   // 빈 목록 컴포넌트
   const EmptyList = () => (
     <View style={styles.emptyContainer}>
-      <Ionicons 
-        name="bus-outline" 
-        size={50} 
-        color={theme.colors.gray[300]} 
-      />
+      <Ionicons name="bus-outline" size={50} color={theme.colors.gray[300]} />
       <Text style={styles.emptyText}>등록된 노선이 없습니다.</Text>
     </View>
   );
@@ -140,16 +137,13 @@ const RouteListPage: React.FC = () => {
   if (error && !refreshing) {
     return (
       <View style={styles.centerContainer}>
-        <Ionicons 
-          name="alert-circle-outline" 
-          size={50} 
-          color={theme.colors.system.error} 
+        <Ionicons
+          name="alert-circle-outline"
+          size={50}
+          color={theme.colors.system.error}
         />
         <Text style={styles.errorText}>{error}</Text>
-        <TouchableOpacity 
-          style={styles.retryButton}
-          onPress={fetchRouteList}
-        >
+        <TouchableOpacity style={styles.retryButton} onPress={fetchRouteList}>
           <Text style={styles.retryText}>다시 시도</Text>
         </TouchableOpacity>
       </View>
@@ -162,7 +156,7 @@ const RouteListPage: React.FC = () => {
         ListHeaderComponent={ListHeader}
         data={routeList}
         renderItem={renderRouteItem}
-        keyExtractor={(item) => item.id}
+        keyExtractor={item => item.id}
         ListEmptyComponent={EmptyList}
         contentContainerStyle={styles.listContent}
         showsVerticalScrollIndicator={false}
@@ -284,7 +278,7 @@ export const AnimatedRouteListPage: React.FC = () => {
   }, [fadeAnim]);
 
   return (
-    <Animated.View style={{ flex: 1, opacity: fadeAnim }}>
+    <Animated.View style={{flex: 1, opacity: fadeAnim}}>
       <RouteListPage />
     </Animated.View>
   );

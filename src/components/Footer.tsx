@@ -1,16 +1,10 @@
-import React, { useEffect, useState } from 'react';
-import {
-  View,
-  TouchableOpacity,
-  Text,
-  StyleSheet,
-  Platform,
-} from 'react-native';
-import { useNavigation, useRoute } from '@react-navigation/native';
-import { StackNavigationProp } from '@react-navigation/stack';
+import React, {useEffect, useState} from 'react';
+import {View, TouchableOpacity, Text, StyleSheet, Platform} from 'react-native';
+import {useNavigation, useRoute} from '@react-navigation/native';
+import {StackNavigationProp} from '@react-navigation/stack';
 import _Ionicons from 'react-native-vector-icons/Ionicons';
-import { authService } from '../api/services/authService';
-import { useModalActions } from '../store/useModalStore';
+import {authService} from '../api/services/authService';
+import {useModalActions} from '../store/useModalStore';
 import theme from '../theme';
 
 // 네비게이션 타입 정의
@@ -43,7 +37,7 @@ interface TabItem {
 
 const Footer: React.FC = () => {
   const [userInfo, setUserInfo] = useState<UserInfo | null>(null);
-  const { openModal, setModalName } = useModalActions();
+  const {openModal, setModalName} = useModalActions();
   const navigation = useNavigation<NavigationProp>();
   const route = useRoute();
 
@@ -57,11 +51,11 @@ const Footer: React.FC = () => {
       activeIcon: 'home',
     },
     {
-      key: 'routeList',  // BusList -> RouteList 변경
-      routeName: 'RouteList',  // BusList -> RouteList 변경
-      label: '노선 목록',  // '버스 노선' -> '노선 목록' 변경
-      icon: 'git-branch-outline', 
-      activeIcon: 'git-branch' 
+      key: 'routeList', // BusList -> RouteList 변경
+      routeName: 'RouteList', // BusList -> RouteList 변경
+      label: '노선 목록', // '버스 노선' -> '노선 목록' 변경
+      icon: 'git-branch-outline',
+      activeIcon: 'git-branch',
     },
     // {
     //   key: 'myInfo',
@@ -127,19 +121,15 @@ const Footer: React.FC = () => {
         key={tab.key}
         style={styles.button}
         onPress={() => handleTabPress(tab)}
-        activeOpacity={0.7}
-      >
+        activeOpacity={0.7}>
         <Ionicons
           name={iconName}
           size={24}
-          color={isActive ? theme.colors.primary.default : theme.colors.gray[500]}
+          color={
+            isActive ? theme.colors.primary.default : theme.colors.gray[500]
+          }
         />
-        <Text
-          style={[
-            styles.buttonText,
-            isActive && styles.activeButtonText,
-          ]}
-        >
+        <Text style={[styles.buttonText, isActive && styles.activeButtonText]}>
           {tab.label}
         </Text>
       </TouchableOpacity>
@@ -147,9 +137,7 @@ const Footer: React.FC = () => {
   };
 
   return (
-    <View style={styles.footer}>
-      {tabs.map(tab => renderTabButton(tab))}
-    </View>
+    <View style={styles.footer}>{tabs.map(tab => renderTabButton(tab))}</View>
   );
 };
 

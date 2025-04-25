@@ -101,7 +101,7 @@ const StationDetail: React.FC<StationDetailProps> = ({stationId}) => {
 
   useEffect(() => {
     let intervalId: NodeJS.Timeout;
-  
+
     if (buses.length > 0) {
       intervalId = setInterval(() => {
         setBuses(prevBuses =>
@@ -125,12 +125,11 @@ const StationDetail: React.FC<StationDetailProps> = ({stationId}) => {
         );
       }, 1000);
     }
-  
+
     return () => {
       if (intervalId) clearInterval(intervalId);
     };
   }, [buses.length]);
-  
 
   // 초기 데이터 로딩
   useEffect(() => {
@@ -152,7 +151,9 @@ const StationDetail: React.FC<StationDetailProps> = ({stationId}) => {
 
   // 초 변환 함수 개선
   const convertTimeStringToSeconds = (timeString: string): number | null => {
-    if (timeString === '--분 --초') {return null;} // 변환 불가 시 null 반환
+    if (timeString === '--분 --초') {
+      return null;
+    } // 변환 불가 시 null 반환
 
     const match = timeString.match(/(\d+)분\s*(\d+)?초?/);
     if (match) {
@@ -165,9 +166,12 @@ const StationDetail: React.FC<StationDetailProps> = ({stationId}) => {
 
   // 시간 표시 함수 개선
   const formatSecondsToTime = (seconds: number | null): string => {
-    if (seconds === null || seconds === Number.MAX_SAFE_INTEGER)
-      {return '--분 --초';}
-    if (seconds <= 0) {return '잠시 후 도착';}
+    if (seconds === null || seconds === Number.MAX_SAFE_INTEGER) {
+      return '--분 --초';
+    }
+    if (seconds <= 0) {
+      return '잠시 후 도착';
+    }
 
     const minutes = Math.floor(seconds / 60);
     const remainingSeconds = seconds % 60;

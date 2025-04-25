@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, {useState, useEffect, useRef} from 'react';
 import {
   View,
   StyleSheet,
@@ -10,13 +10,13 @@ import {
   KeyboardAvoidingView,
   TextInput,
 } from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useDebounce } from 'use-debounce';
+import {useSafeAreaInsets} from 'react-native-safe-area-context';
+import {useDebounce} from 'use-debounce';
 import Text from '../common/Text';
 import Input from '../common/Input';
 import Button from '../common/Button';
 import theme from '../../theme';
-import { Station, stationService } from '../../api/services/stationService';
+import {Station, stationService} from '../../api/services/stationService';
 import useSelectedStationStore from '../../store/useSelectedStationStore';
 import IconSearch from '../assets/icons/IconSearch'; // Ensure this file exists at the specified path
 
@@ -34,14 +34,14 @@ const SearchStationModal: React.FC<SearchStationModalProps> = ({
   toggleFavorite,
 }) => {
   const insets = useSafeAreaInsets();
-  const { setSelectedStation } = useSelectedStationStore();
-  
+  const {setSelectedStation} = useSelectedStationStore();
+
   const [searchTerm, setSearchTerm] = useState('');
   const [debouncedSearchTerm] = useDebounce(searchTerm, 300);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [searchResults, setSearchResults] = useState<Station[]>([]);
-  
+
   const inputRef = useRef<TextInput>(null);
 
   useEffect(() => {
@@ -60,12 +60,14 @@ const SearchStationModal: React.FC<SearchStationModalProps> = ({
         }
         return;
       }
-  
+
       // 검색어가 있을 때 검색 수행
       try {
         setIsLoading(true);
         setError(null);
-        const results = await stationService.searchStationsByName(debouncedSearchTerm);
+        const results = await stationService.searchStationsByName(
+          debouncedSearchTerm,
+        );
         setSearchResults(results);
       } catch (error) {
         console.error('Station search error:', error);
@@ -74,10 +76,10 @@ const SearchStationModal: React.FC<SearchStationModalProps> = ({
         setIsLoading(false);
       }
     };
-  
+
     searchStations();
   }, [debouncedSearchTerm]);
-  
+
   // 모달 열릴 때 초기화 및 전체 정류장 로드
   useEffect(() => {
     if (visible) {
@@ -93,66 +95,74 @@ const SearchStationModal: React.FC<SearchStationModalProps> = ({
           setIsLoading(false);
         }
       };
-  
+
       loadInitialData();
       inputRef.current?.focus();
     }
   }, [visible]);
-  
+
   // 정류장 선택 처리
   const handleStationSelect = (station: Station) => {
-    setSelectedStation(station);
+    setSelectedStation({
+      ...station,
+      location: station.location
+        ? {
+            x: station.location.coordinates[0],
+            y: station.location.coordinates[1],
+          }
+        : undefined,
+    });
     onClose();
   };
-  
+
   // 즐겨찾기 상태 확인
   const isStationFavorite = (stationId: string) => {
     return favoriteStations.some(station => station.id === stationId);
   };
-  
+
   // 정류장 아이템 렌더링
-  const renderStationItem = ({ item }: { item: Station }) => {
+  const renderStationItem = ({item}: {item: Station}) => {
     const isFavorite = isStationFavorite(item.id);
-    
+
     return (
       <TouchableOpacity
         style={styles.stationItem}
         onPress={() => handleStationSelect(item)}
-        activeOpacity={0.7}
-      >
+        activeOpacity={0.7}>
         <View style={styles.stationInfo}>
           <Text variant="md" weight="medium">
             {item.name}
           </Text>
         </View>
-        
+
         <TouchableOpacity
           style={styles.favoriteButton}
-          onPress={() => toggleFavorite(item.id)}
-        >
-          <Text 
+          onPress={() => toggleFavorite(item.id)}>
+          <Text
             style={[
               styles.favoriteIcon,
-              isFavorite && styles.favoriteIconActive
-            ]}
-          >
+              isFavorite && styles.favoriteIconActive,
+            ]}>
             {isFavorite ? '★' : '☆'}
           </Text>
         </TouchableOpacity>
       </TouchableOpacity>
     );
   };
-  
+
   // 결과 렌더링
   const renderContent = () => {
     if (isLoading) {
       return (
         <View style={styles.centeredContent}>
-          <ActivityIndicator size="large" color={theme.colors.primary.default} />
+          <ActivityIndicator
+            size="large"
+            color={theme.colors.primary.default}
+          />
         </View>
       );
     }
-    
+
     if (error) {
       return (
         <View style={styles.centeredContent}>
@@ -162,7 +172,7 @@ const SearchStationModal: React.FC<SearchStationModalProps> = ({
         </View>
       );
     }
-    
+
     if (searchResults.length === 0) {
       if (debouncedSearchTerm.trim()) {
         return (
@@ -182,7 +192,7 @@ const SearchStationModal: React.FC<SearchStationModalProps> = ({
         );
       }
     }
-    
+
     return (
       <FlatList
         data={searchResults}
@@ -194,23 +204,18 @@ const SearchStationModal: React.FC<SearchStationModalProps> = ({
       />
     );
   };
-  
+
   if (!visible) return null;
-  
+
   return (
     <Modal
       visible={visible}
       transparent
       animationType="slide"
-      onRequestClose={onClose}
-    >
+      onRequestClose={onClose}>
       <KeyboardAvoidingView
-        style={[
-          styles.container,
-          { paddingTop: insets.top }
-        ]}
-        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-      >
+        style={[styles.container, {paddingTop: insets.top}]}
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
         <View style={styles.header}>
           <View style={styles.searchInputContainer}>
             <Input
@@ -227,20 +232,17 @@ const SearchStationModal: React.FC<SearchStationModalProps> = ({
               containerStyle={styles.searchInputWrapper}
             />
           </View>
-          
+
           <Button
             variant="text"
             size="small"
             onPress={onClose}
-            style={styles.cancelButton}
-          >
+            style={styles.cancelButton}>
             취소
           </Button>
         </View>
-        
-        <View style={styles.content}>
-          {renderContent()}
-        </View>
+
+        <View style={styles.content}>{renderContent()}</View>
       </KeyboardAvoidingView>
     </Modal>
   );

@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, {useState, useEffect, useRef} from 'react';
 import {
   View,
   StyleSheet,
@@ -9,12 +9,12 @@ import {
 } from 'react-native';
 import Text from '../common/Text';
 import theme from '../../theme';
-import { Station } from '../../api/services/stationService';
+import {Station} from '../../api/services/stationService';
 import StationList from './StationList';
 import StationDetail from './StationDetail';
 import useSelectedStationStore from '../../store/useSelectedStationStore';
 
-const { height } = Dimensions.get('window');
+const {height} = Dimensions.get('window');
 
 // 패널 높이 설정
 const SNAP_POINTS = {
@@ -32,11 +32,13 @@ const StationPanel: React.FC<StationPanelProps> = ({
   favoriteStations,
   toggleFavorite,
 }) => {
-  const { selectedStation, resetSelectedStation } = useSelectedStationStore();
+  const {selectedStation, resetSelectedStation} = useSelectedStationStore();
   const [panelHeight, setPanelHeight] = useState(SNAP_POINTS.MIDDLE);
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const [isDragging, setIsDragging] = useState(false);
-  const translateY = useRef(new Animated.Value(height - SNAP_POINTS.MIDDLE)).current;
+  const translateY = useRef(
+    new Animated.Value(height - SNAP_POINTS.MIDDLE),
+  ).current;
   const lastOffset = useRef(height - SNAP_POINTS.MIDDLE);
 
   // 버튼 비활성화 상태 관리 (뒤로 가기 버튼)
@@ -57,11 +59,11 @@ const StationPanel: React.FC<StationPanelProps> = ({
   // 선택된 정류장 변경 시 버튼 비활성화 타이머 설정
   useEffect(() => {
     let timer: NodeJS.Timeout;
-    
+
     if (selectedStation) {
       setIsButtonEnabled(false);
       setRemainingTime(2);
-      
+
       timer = setInterval(() => {
         setRemainingTime(prev => {
           if (prev <= 1) {
@@ -73,7 +75,7 @@ const StationPanel: React.FC<StationPanelProps> = ({
         });
       }, 1000);
     }
-    
+
     return () => {
       if (timer) clearInterval(timer);
     };
@@ -100,30 +102,44 @@ const StationPanel: React.FC<StationPanelProps> = ({
         // 패널 이동 제한 (최대 높이와 최소 높이 사이)
         const newTranslateY = Math.max(
           height - SNAP_POINTS.TOP,
-          Math.min(height - SNAP_POINTS.BOTTOM, lastOffset.current + gestureState.dy)
+          Math.min(
+            height - SNAP_POINTS.BOTTOM,
+            lastOffset.current + gestureState.dy,
+          ),
         );
         translateY.setValue(newTranslateY - lastOffset.current);
       },
       onPanResponderRelease: (_, gestureState) => {
         translateY.flattenOffset();
         setIsDragging(false);
-        
+
         const currentPosition = lastOffset.current + gestureState.dy;
-        
+
         // 스냅 포인트 결정
         let snapPoint;
-        
+
         // 빠른 스와이프 처리
         if (Math.abs(gestureState.vy) > 0.5) {
-          snapPoint = gestureState.vy > 0 ? SNAP_POINTS.BOTTOM : SNAP_POINTS.TOP;
+          snapPoint =
+            gestureState.vy > 0 ? SNAP_POINTS.BOTTOM : SNAP_POINTS.TOP;
         } else {
           // 가장 가까운 스냅 포인트 찾기
-          const distanceToBottom = Math.abs(height - SNAP_POINTS.BOTTOM - currentPosition);
-          const distanceToMiddle = Math.abs(height - SNAP_POINTS.MIDDLE - currentPosition);
-          const distanceToTop = Math.abs(height - SNAP_POINTS.TOP - currentPosition);
-          
-          const minDistance = Math.min(distanceToBottom, distanceToMiddle, distanceToTop);
-          
+          const distanceToBottom = Math.abs(
+            height - SNAP_POINTS.BOTTOM - currentPosition,
+          );
+          const distanceToMiddle = Math.abs(
+            height - SNAP_POINTS.MIDDLE - currentPosition,
+          );
+          const distanceToTop = Math.abs(
+            height - SNAP_POINTS.TOP - currentPosition,
+          );
+
+          const minDistance = Math.min(
+            distanceToBottom,
+            distanceToMiddle,
+            distanceToTop,
+          );
+
           if (minDistance === distanceToBottom) {
             snapPoint = SNAP_POINTS.BOTTOM;
           } else if (minDistance === distanceToMiddle) {
@@ -132,11 +148,11 @@ const StationPanel: React.FC<StationPanelProps> = ({
             snapPoint = SNAP_POINTS.TOP;
           }
         }
-        
+
         // 애니메이션으로 스냅 포인트로 이동
         setPanelHeight(snapPoint);
       },
-    })
+    }),
   ).current;
 
   const handleBackButton = () => {
@@ -146,20 +162,12 @@ const StationPanel: React.FC<StationPanelProps> = ({
   };
 
   return (
-    <Animated.View
-      style={[
-        styles.container,
-        { transform: [{ translateY }] }
-      ]}
-    >
+    <Animated.View style={[styles.container, {transform: [{translateY}]}]}>
       {/* 패널 핸들 */}
-      <View
-        style={styles.headerContainer}
-        {...panResponder.panHandlers}
-      >
+      <View style={styles.headerContainer} {...panResponder.panHandlers}>
         <View style={styles.panelHandle} />
       </View>
-      
+
       {/* 패널 헤더 */}
       <View style={styles.header}>
         {selectedStation ? (
@@ -167,39 +175,36 @@ const StationPanel: React.FC<StationPanelProps> = ({
             <TouchableOpacity
               style={[
                 styles.backButton,
-                !isButtonEnabled && styles.backButtonDisabled
+                !isButtonEnabled && styles.backButtonDisabled,
               ]}
               onPress={handleBackButton}
-              disabled={!isButtonEnabled}
-            >
+              disabled={!isButtonEnabled}>
               <Text
                 variant="sm"
-                color={isButtonEnabled ? theme.colors.primary.default : theme.colors.gray[400]}
-              >
+                color={
+                  isButtonEnabled
+                    ? theme.colors.primary.default
+                    : theme.colors.gray[400]
+                }>
                 {isButtonEnabled ? '뒤로' : `${remainingTime}초`}
               </Text>
             </TouchableOpacity>
-            
+
             <Text
               variant="h5"
               weight="semiBold"
               style={styles.title}
-              numberOfLines={1}
-            >
+              numberOfLines={1}>
               {selectedStation.name}
             </Text>
           </>
         ) : (
-          <Text
-            variant="h5"
-            weight="semiBold"
-            style={styles.title}
-          >
+          <Text variant="h5" weight="semiBold" style={styles.title}>
             내 정류장
           </Text>
         )}
       </View>
-      
+
       {/* 패널 콘텐츠 */}
       <View style={styles.content}>
         {selectedStation ? (
@@ -228,7 +233,6 @@ const styles = StyleSheet.create({
     ...theme.shadows.lg,
     overflow: 'hidden',
     zIndex: 100,
-
   },
   headerContainer: {
     width: '100%',

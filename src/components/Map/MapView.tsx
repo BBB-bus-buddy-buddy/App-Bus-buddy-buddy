@@ -1,9 +1,5 @@
-import React, { useEffect, useState, useCallback, useRef } from 'react';
-import {
-  View,
-  StyleSheet,
-  TouchableOpacity,
-} from 'react-native';
+import React, {useEffect, useState, useCallback, useRef} from 'react';
+import {View, StyleSheet, TouchableOpacity} from 'react-native';
 import Geolocation from '@react-native-community/geolocation';
 import {
   Camera,
@@ -13,10 +9,10 @@ import {
 
 import theme from '../../theme';
 import LoadingPage from '../../pages/LoadingPage';
-import { stationService, Station } from '../../api/services/stationService';
-import { createPassengerWebSocket } from '../../api/services/websocketService';
+import {stationService, Station} from '../../api/services/stationService';
+import {createPassengerWebSocket} from '../../api/services/websocketService';
 import useSelectedStationStore from '../../store/useSelectedStationStore';
-import { useToast } from '../../components/common/Toast';
+import {useToast} from '../../components/common/Toast';
 import MyLocationIcon from '../../../assets/logos/myLocation.svg';
 
 // 내 위치 아이콘 이미지 (SVG 대신 이미지 사용)
@@ -24,7 +20,7 @@ import MyLocationIcon from '../../../assets/logos/myLocation.svg';
 // 지도 카메라 초기 위치 (기본값: 서울)
 const DEFAULT_CAMERA: Camera = {
   latitude: 37.5665,
-  longitude: 126.9780,
+  longitude: 126.978,
   zoom: 15,
 };
 
@@ -39,28 +35,30 @@ interface MapViewProps {
   stations?: Station[]; // 옵션으로 외부에서 정류장 목록 전달받을 수 있음
 }
 
-const MapView: React.FC<MapViewProps> = ({ stations }) => {
+const MapView: React.FC<MapViewProps> = ({stations}) => {
   // 웹소켓 참조 변수
-  const websocketRef = useRef<ReturnType<typeof createPassengerWebSocket> | null>(null);
-  
+  const websocketRef = useRef<ReturnType<
+    typeof createPassengerWebSocket
+  > | null>(null);
+
   // 상태 관리
   const [myLocation, setMyLocation] = useState<Camera>(DEFAULT_CAMERA);
   const [stationPositions, setStationPositions] = useState<Station[]>([]);
   const [busPositions, setBusPositions] = useState<BusPosition[]>([]);
   const [camera, setCamera] = useState<Camera>(DEFAULT_CAMERA);
   const [isLoading, setIsLoading] = useState(true);
-  
+
   // 선택된 정류장 전역 상태 관리
-  const { selectedStation, setSelectedStation } = useSelectedStationStore();
-  const { showToast } = useToast();
+  const {selectedStation, setSelectedStation} = useSelectedStationStore();
+  const {showToast} = useToast();
 
   // 현재 위치 초기화
   const initializeLocation = useCallback(() => {
     return new Promise<void>(resolve => {
       Geolocation.getCurrentPosition(
         position => {
-          const { latitude, longitude } = position.coords;
-          setMyLocation({ latitude, longitude, zoom: 15 });
+          const {latitude, longitude} = position.coords;
+          setMyLocation({latitude, longitude, zoom: 15});
           resolve();
         },
         error => {
@@ -69,7 +67,7 @@ const MapView: React.FC<MapViewProps> = ({ stations }) => {
           setMyLocation(DEFAULT_CAMERA);
           resolve();
         },
-        { enableHighAccuracy: true, timeout: 15000, maximumAge: 10000 }
+        {enableHighAccuracy: true, timeout: 15000, maximumAge: 10000},
       );
     });
   }, [showToast]);
@@ -82,7 +80,7 @@ const MapView: React.FC<MapViewProps> = ({ stations }) => {
         setStationPositions(stations);
         return;
       }
-      
+
       // API 호출로 정류장 데이터 가져오기
       const stationsData = await stationService.getAllStations();
       setStationPositions(stationsData);
@@ -110,7 +108,7 @@ const MapView: React.FC<MapViewProps> = ({ stations }) => {
             };
           })
           .filter(
-            (pos: { location: { coordinates: number[] } }): pos is BusPosition =>
+            (pos: {location: {coordinates: number[]}}): pos is BusPosition =>
               !isNaN(pos.location.coordinates[0]) &&
               !isNaN(pos.location.coordinates[1]),
           );
@@ -130,13 +128,13 @@ const MapView: React.FC<MapViewProps> = ({ stations }) => {
         console.log('버스 위치 웹소켓 연결됨');
       },
       onMessage: handleWebSocketMessage,
-      onError: (error) => {
+      onError: error => {
         console.error('웹소켓 오류:', error);
         showToast('실시간 버스 위치 정보를 받을 수 없습니다.', 'error');
       },
       onClose: () => {
         console.log('버스 위치 웹소켓 연결 종료');
-      }
+      },
     });
 
     // 웹소켓 연결
@@ -160,14 +158,14 @@ const MapView: React.FC<MapViewProps> = ({ stations }) => {
         setIsLoading(true);
         await initializeLocation();
         await fetchStations();
-        
+
         if (isActive) {
           setIsLoading(false);
         }
       } catch (error) {
         console.error('초기화 오류:', error);
         showToast('지도를 초기화하는 중 오류가 발생했습니다.', 'error');
-        
+
         if (isActive) {
           setIsLoading(false);
         }
@@ -221,8 +219,7 @@ const MapView: React.FC<MapViewProps> = ({ stations }) => {
         minZoom={5}
         maxZoom={20}
         isShowLocationButton={false}
-        isLiteModeEnabled={false}
-      >
+        isLiteModeEnabled={false}>
         {/* 내 위치 마커 */}
         {myLocation && (
           <NaverMapMarkerOverlay
@@ -248,7 +245,17 @@ const MapView: React.FC<MapViewProps> = ({ stations }) => {
                   color: theme.colors.gray[900],
                   haloColor: theme.colors.white,
                 }}
-                onTap={() => setSelectedStation(station)}
+                onTap={() =>
+                  setSelectedStation({
+                    ...station,
+                    location: station.location
+                      ? {
+                          x: station.location.coordinates[1],
+                          y: station.location.coordinates[0],
+                        }
+                      : undefined,
+                  })
+                }
                 width={24}
                 height={24}
                 image={require('../../../assets/images/busStop.png')}
@@ -279,8 +286,7 @@ const MapView: React.FC<MapViewProps> = ({ stations }) => {
       <TouchableOpacity
         style={styles.myLocationButton}
         onPress={moveToMyLocation}
-        activeOpacity={0.7}
-      >
+        activeOpacity={0.7}>
         <MyLocationIcon
           width={22}
           height={22}

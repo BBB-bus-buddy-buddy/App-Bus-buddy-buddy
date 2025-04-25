@@ -14,7 +14,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import InAppBrowser from 'react-native-inappbrowser-reborn';
 import axios from 'axios';
-import GoogleLogo from '../assets/logos/google.svg';
+import GoogleLogo from '../../assets/logos/google.svg';
 
 interface LoginPageProps {
   onLoginSuccess?: () => void;
@@ -186,7 +186,7 @@ const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
     <SafeAreaView style={styles.container}>
       <View style={styles.content}>
         <Image
-          source={require('../assets/images/busIcon.png')}
+          source={require('../../assets/images/busIcon.png')}
           style={styles.busIcon}
           resizeMode="contain"
         />

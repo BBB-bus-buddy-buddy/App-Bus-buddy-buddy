@@ -8,17 +8,19 @@ import {createNativeStackNavigator} from '@react-navigation/native-stack';
 import axios from 'axios';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import {SafeAreaProvider} from 'react-native-safe-area-context';
-import useModalState from './store/useModalStore';
-import MyInfoModal from './components/MyInfoModal';
+import useModalState from './src/store/useModalStore';
+import MyInfoModal from './src/components/MyInfoModal';
 
 // 페이지 imports
-import LoginPage from './pages/LoginPage';
-import EnterCodePage from './pages/EnterCodePage';
-import LoadingPage from './pages/LoadingPage';
-import HomePage from './pages/HomePage';
-import BusListPage from './pages/BusListPage';
-import BusRoutePage from './pages/BusRoutePage';
+import LoginPage from './src/pages/LoginPage';
+import EnterCodePage from './src/pages/EnterCodePage';
+import LoadingPage from './src/pages/LoadingPage';
+import HomePage from './src/pages/HomePage';
+import BusListPage from './src/pages/BusListPage';
+import BusRoutePage from './src/pages/BusRoutePage';
 import {Alert} from 'react-native';
+import { ToastProvider } from './src/components/common/Toast';
+import RouteListPage from './src/pages/RouteListPage';
 // 네비게이션 타입 정의
 export type RootStackParamList = {
   Login: undefined;
@@ -28,6 +30,7 @@ export type RootStackParamList = {
   BusDirection: undefined;
   BusList: undefined;
   BusRoute: {busNumber: string};
+  RouteList: undefined;
   Admin: undefined;
   AdminBusStation: undefined;
   AdminBusStationCreate: undefined;
@@ -62,6 +65,7 @@ const App = () => {
 
   return (
       <SafeAreaProvider>
+          <ToastProvider>
         <NavigationContainer>
           <Stack.Navigator
             initialRouteName="Login"
@@ -72,6 +76,7 @@ const App = () => {
             <Stack.Screen name="EnterCode" component={EnterCodePage} />
             <Stack.Screen name="Loading" component={LoadingPage} />
             <Stack.Screen name="Home" component={HomePage} />
+            <Stack.Screen name="RouteList" component={RouteListPage} />
             <Stack.Screen name="BusList" component={BusListPage} />
             <Stack.Screen
               name="BusRoute"
@@ -123,6 +128,7 @@ const App = () => {
           {/* Modals */}
           {isModal && modalName === 'myInfoModal' && <MyInfoModal />}
         </NavigationContainer>
+        </ToastProvider>
       </SafeAreaProvider>
   );
 };

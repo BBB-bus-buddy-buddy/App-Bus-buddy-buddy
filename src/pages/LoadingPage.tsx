@@ -55,7 +55,7 @@ const LoadingPage: React.FC = () => {
     ]}>
       <View style={styles.logoContainer}>
         <Animated.Image
-          source={require('../assets/images/busIcon.png')}
+          source={require('../../assets/images/busIcon.png')}
           style={[
             styles.busIcon,
             {

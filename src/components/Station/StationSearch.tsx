@@ -6,8 +6,7 @@ import {
   StyleSheet,
   Platform
 } from 'react-native';
-import { Feather } from '@expo/vector-icons';
-import useStore from '../store/useStore';
+import useStore from '../../store/useStore';
 
 
 export interface Station {
@@ -42,12 +41,6 @@ const StationSearch: React.FC = () => {
   return (
     <View style={styles.container}>
       <View style={styles.searchBar}>
-        <Feather 
-          name="search" 
-          size={20} 
-          color="#666666" 
-          style={styles.searchIcon}
-        />
         <TextInput
           style={styles.input}
           placeholder="정류장을 검색하세요"
@@ -65,7 +58,6 @@ const StationSearch: React.FC = () => {
             style={styles.clearButton}
             hitSlop={{ top: 10, right: 10, bottom: 10, left: 10 }}
           >
-            <Feather name="x" size={20} color="#666666" />
           </TouchableOpacity>
         )}
       </View>

@@ -2,21 +2,18 @@
   "name": "BusBuddyBuddy",
   "version": "0.0.1",
   "private": true,
-"scripts": {
+  "scripts": {
     "clean-start": "npm start --reset-cache",
     "reset-node-modules": "rm -rf node_modules && npm install",
     "doctor": "react-native doctor",
-
     "android": "react-native run-android",
     "clean-android": "cd android && ./gradlew clean && ./gradlew assembleDebug && cd ..",
     "clean-build-android": "npm run clean-android && npm run android",
-
     "ios": "react-native run-ios",
     "ios-16p": "react-native run-ios --simulator=\"iPhone 16 Plus\"",
     "pod-install": "cd ios && pod install && cd ..",
     "clean-ios": "cd ios && (rm -rf build/ || true) && xcodebuild clean && npm run pod-install && cd ..",
     "clean-build-ios": "npm run clean-ios && npm run pod-install && npm run ios",
-
     "lint": "eslint .",
     "start": "react-native start",
     "test": "jest",
@@ -24,13 +21,13 @@
     "reset-cache": "watchman watch-del-all && npm start — —reset-cache"
   },
   "dependencies": {
-    "@expo/vector-icons": "^14.0.4",
     "@mj-studio/react-native-naver-map": "^2.3.0",
     "@react-native-async-storage/async-storage": "^2.0.0",
     "@react-native-community/geolocation": "^3.4.0",
     "@react-navigation/native": "^6.0.8",
     "@react-navigation/native-stack": "6.9.17",
     "@react-navigation/stack": "^6.3.21",
+    "@types/react-native-vector-icons": "^6.4.18",
     "axios": "^1.7.9",
     "react": "19.0.0",
     "react-native": "^0.78.0",
@@ -39,6 +36,8 @@
     "react-native-safe-area-context": "^5.1.0",
     "react-native-screens": "^4.9.1",
     "react-native-svg": "^15.11.2",
+    "react-native-vector-icons": "^10.2.0",
+    "use-debounce": "^10.0.4",
     "zustand": "^5.0.2"
   },
   "devDependencies": {

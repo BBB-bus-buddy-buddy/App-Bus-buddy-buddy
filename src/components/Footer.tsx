@@ -4,14 +4,13 @@ import {useNavigation, useRoute} from '@react-navigation/native';
 import {StackNavigationProp} from '@react-navigation/stack';
 import _Ionicons from 'react-native-vector-icons/Ionicons';
 import {authService} from '../api/services/authService';
-import {useModalActions} from '../store/useModalStore';
 import theme from '../theme';
 
 // 네비게이션 타입 정의
 type RootStackParamList = {
   Home: undefined;
   RouteList: undefined;
-  Admin: undefined;
+  MyPage: undefined;  // MyPage 추가
 };
 
 const Ionicons = _Ionicons as unknown as React.ElementType;
@@ -28,7 +27,7 @@ interface UserInfo {
 // 탭 정의
 interface TabItem {
   key: string;
-  routeName: keyof RootStackParamList | 'Modal';
+  routeName: keyof RootStackParamList;
   label: string;
   icon: string;
   activeIcon: string;
@@ -37,7 +36,6 @@ interface TabItem {
 
 const Footer: React.FC = () => {
   const [userInfo, setUserInfo] = useState<UserInfo | null>(null);
-  const {openModal, setModalName} = useModalActions();
   const navigation = useNavigation<NavigationProp>();
   const route = useRoute();
 
@@ -51,19 +49,19 @@ const Footer: React.FC = () => {
       activeIcon: 'home',
     },
     {
-      key: 'routeList', // BusList -> RouteList 변경
-      routeName: 'RouteList', // BusList -> RouteList 변경
-      label: '노선 목록', // '버스 노선' -> '노선 목록' 변경
+      key: 'routeList',
+      routeName: 'RouteList',
+      label: '노선 목록',
       icon: 'git-branch-outline',
       activeIcon: 'git-branch',
     },
-    // {
-    //   key: 'myInfo',
-    //   routeName: '',
-    //   label: '내 정보',
-    //   icon: 'person-outline',
-    //   activeIcon: 'person',
-    // },
+    {
+      key: 'mypage',
+      routeName: 'MyPage',  // MyPage로 변경
+      label: '마이페이지',  // label 변경
+      icon: 'person-outline',
+      activeIcon: 'person',
+    },
   ];
 
   // 사용자 정보 가져오기
@@ -90,20 +88,12 @@ const Footer: React.FC = () => {
 
   // 현재 활성화된 탭 확인
   const isTabActive = (tabRouteName: string) => {
-    if (tabRouteName === 'Modal') {
-      return false; // 모달은 활성화 상태가 없음
-    }
     return route.name === tabRouteName;
   };
 
   // 탭 클릭 핸들러
   const handleTabPress = (tab: TabItem) => {
-    if (tab.routeName === 'Modal') {
-      setModalName('myInfoModal');
-      openModal('myInfoModal');
-    } else {
-      navigation.navigate(tab.routeName);
-    }
+    navigation.navigate(tab.routeName);
   };
 
   // 탭 버튼 렌더링

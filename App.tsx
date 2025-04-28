@@ -8,8 +8,6 @@ import {createNativeStackNavigator} from '@react-navigation/native-stack';
 import axios from 'axios';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import {SafeAreaProvider} from 'react-native-safe-area-context';
-import useModalState from './src/store/useModalStore';
-import MyInfoModal from './src/components/MyInfoModal';
 
 // 페이지 imports
 import LoginPage from './src/pages/LoginPage';
@@ -21,6 +19,7 @@ import BusRoutePage from './src/pages/BusRoutePage';
 import {Alert} from 'react-native';
 import { ToastProvider } from './src/components/common/Toast';
 import RouteListPage from './src/pages/RouteListPage';
+import MyPage from './src/components/MyPage';
 // 네비게이션 타입 정의
 export type RootStackParamList = {
   Login: undefined;
@@ -31,6 +30,7 @@ export type RootStackParamList = {
   BusList: undefined;
   BusRoute: {busNumber: string};
   RouteList: undefined;
+  MyPage: undefined; // Added MyPage to the type definition
   Admin: undefined;
   AdminBusStation: undefined;
   AdminBusStationCreate: undefined;
@@ -61,7 +61,6 @@ axios.interceptors.request.use(
 );
 
 const App = () => {
-  const {modalName, isModal} = useModalState();
 
   return (
       <SafeAreaProvider>
@@ -78,6 +77,7 @@ const App = () => {
             <Stack.Screen name="Home" component={HomePage} />
             <Stack.Screen name="RouteList" component={RouteListPage} />
             <Stack.Screen name="BusList" component={BusListPage} />
+            <Stack.Screen name="MyPage" component={MyPage} />
             <Stack.Screen
               name="BusRoute"
               component={BusRoutePage}
@@ -124,9 +124,6 @@ const App = () => {
             options={{ headerShown: true, title: '버스 수정' }}
           /> */}
           </Stack.Navigator>
-
-          {/* Modals */}
-          {isModal && modalName === 'myInfoModal' && <MyInfoModal />}
         </NavigationContainer>
         </ToastProvider>
       </SafeAreaProvider>

@@ -95,8 +95,8 @@ const EnterCodePage: React.FC = () => {
   // 코드 입력 핸들러
   const handleCodeChange = (text: string) => {
     // 숫자만 허용
-    const numericText = text.replace(/[^0-9]/g, '');
-    setSchoolCode(numericText);
+    const alphanumericText = text.replace(/[^A-Za-z0-9]/g, '');
+    setSchoolCode(alphanumericText);
 
     // 입력 시작하면 이전 상태 초기화
     if (validationStatus.message) {

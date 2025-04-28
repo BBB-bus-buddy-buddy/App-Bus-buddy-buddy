@@ -28,6 +28,8 @@
 	<string>$(CURRENT_PROJECT_VERSION)</string>
 	<key>LSRequiresIPhoneOS</key>
 	<true/>
+  <key>NMFClientId</key>
+	<string>$(NAVER_MAP_ID)</string>
 	<key>NSAppTransportSecurity</key>
 	<dict>
 		<key>NSAllowsArbitraryLoads</key>
@@ -35,8 +37,18 @@
 		<key>NSAllowsLocalNetworking</key>
 		<true/>
 	</dict>
-	<key>NSLocationWhenInUseUsageDescription</key>
-	<string></string>
+  <key>NSLocationWhenInUseUsageDescription</key>
+  <string>자동 탑승 감지를 위해 위치 권한이 필요합니다.</string>
+  <key>NSLocationAlwaysAndWhenInUseUsageDescription</key>
+  <string>앱이 닫혀 있을 때도 자동 탑승을 감지하기 위해 위치 권한이 필요합니다.</string>
+  <key>NSLocationAlwaysUsageDescription</key>
+  <string>백그라운드에서 자동 탑승을 감지하기 위해 위치 권한이 필요합니다.</string>
+	<!-- iOS 14+ 정밀 위치 권한 (필요한 경우) -->
+  <key>NSLocationTemporaryUsageDescriptionDictionary</key>
+  <dict>
+    <key>YOUR-PURPOSE-KEY</key>
+    <string>정확한 탑승 위치 감지를 위해 정밀 위치 권한이 필요합니다.</string>
+  </dict>
 	<key>UILaunchStoryboardName</key>
 	<string>LaunchScreen</string>
 	<key>UIRequiredDeviceCapabilities</key>

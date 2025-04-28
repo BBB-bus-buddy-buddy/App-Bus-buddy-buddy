@@ -227,7 +227,6 @@ const MapView: React.FC<MapViewProps> = ({stations}) => {
             height={24}
             longitude={myLocation.longitude}
             latitude={myLocation.latitude}
-            image={require('../../../assets/logos/myLocation.svg')}
           />
         )}
 
@@ -250,8 +249,8 @@ const MapView: React.FC<MapViewProps> = ({stations}) => {
                     ...station,
                     location: station.location
                       ? {
-                          x: station.location.coordinates[1],
-                          y: station.location.coordinates[0],
+                          x: station.location.coordinates[0],
+                          y: station.location.coordinates[1],
                         }
                       : undefined,
                   })
@@ -277,7 +276,7 @@ const MapView: React.FC<MapViewProps> = ({stations}) => {
             }}
             width={24}
             height={24}
-            image={require('../../../assets/images/busStop.png')}
+            image={require('../../../assets/images/busIcon.png')}
           />
         ))}
       </NaverMapView>

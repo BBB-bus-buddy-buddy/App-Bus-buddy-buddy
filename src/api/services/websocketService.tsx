@@ -1,16 +1,19 @@
+// src/api/services/websocketService.tsx
 import {Platform} from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import {PassengerLocationDTO} from './dto/PassengerLocationDTO';
 
 interface WebSocketOptions {
   onOpen?: () => void;
   onMessage?: (data: any) => void;
   onError?: (error: any) => void;
   onClose?: () => void;
+  onBoardingDetected?: (busNumber: string) => void;
 }
 
 const API_BASE_URL = Platform.select({
   ios: 'http://localhost:8088',
-  android: 'http://10.0.2.2:8088',
+  android: 'http://devse.gonetis.com:12589',
 });
 
 // 웹소켓 URL
@@ -49,6 +52,17 @@ export class WebSocketService {
       this.socket.onmessage = event => {
         try {
           const data = JSON.parse(event.data);
+
+          // 자동 탑승 감지 메시지 처리
+          if (
+            data.status === 'success' &&
+            data.message &&
+            data.message.includes('버스 탑승이 자동으로 감지') &&
+            data.busNumber
+          ) {
+            this.options.onBoardingDetected?.(data.busNumber);
+          }
+
           this.options.onMessage?.(data);
         } catch (error) {
           console.error('Error parsing WebSocket message:', error);
@@ -144,6 +158,20 @@ export class BusPassengerWebSocketService extends WebSocketService {
         busNumber: data.busNumber,
         userId: data.userId,
         action: data.action,
+      },
+    });
+  }
+
+  // 승객 위치 정보 전송 (자동 탑승 감지용)
+  sendLocationUpdate(locationData: PassengerLocationDTO): void {
+    this.send({
+      type: 'location',
+      organizationId: locationData.organizationId,
+      data: {
+        userId: locationData.userId,
+        latitude: locationData.latitude,
+        longitude: locationData.longitude,
+        timestamp: locationData.timestamp,
       },
     });
   }

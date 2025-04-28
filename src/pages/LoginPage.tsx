@@ -31,7 +31,7 @@ interface UserResponse {
 
 const API_BASE_URL = Platform.select({
   ios: 'http://localhost:8088',
-  android: 'http://localhost:8088',
+  android: 'http://devse.gonetis.com:12589', // Android 에뮬레이터에서 localhost 접근용
 }) as string;
 
 const LOGIN_URL = `${API_BASE_URL}/oauth2/authorization/google`;

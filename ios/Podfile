@@ -5,7 +5,10 @@ require Pod::Executable.execute_command('node', ['-p',
     {paths: [process.argv[1]]},
   )', __dir__]).strip
 
-platform :ios, min_ios_version_supported
+## 추가된 부분: react-native-permissions 설정 스크립트
+require_relative '../node_modules/react-native-permissions/scripts/setup'
+
+platform :ios, '15.1'  # 수정: min_ios_version_supported → 구체적 버전 명시
 prepare_react_native_project!
 
 linkage = ENV['USE_FRAMEWORKS']
@@ -21,15 +24,18 @@ target 'Busbuddybuddy' do
     :path => config[:reactNativePath],
     :app_path => "#{Pod::Config.instance.installation_root}/.."
   )
-  
+
+  ## 추가된 부분: 위치 권한 핸들러 등록
+  setup_permissions([
+    'LocationWhenInUse' # 위치 권한
+    # 필요시 'Camera', 'PhotoLibrary' 등 추가
+  ])
 
   post_install do |installer|
-    # https://github.com/facebook/react-native/blob/main/packages/react-native/scripts/react_native_pods.rb#L197-L202
     react_native_post_install(
       installer,
       config[:reactNativePath],
       :mac_catalyst_enabled => false,
-      # :ccache_enabled => true
     )
   end
 end

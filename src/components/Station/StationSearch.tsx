@@ -1,13 +1,12 @@
-import React, { useState } from 'react';
+import React, {useState} from 'react';
 import {
   View,
   TextInput,
   TouchableOpacity,
   StyleSheet,
-  Platform
+  Platform,
 } from 'react-native';
 import useStore from '../../store/useStore';
-
 
 export interface Station {
   id: string;
@@ -23,12 +22,12 @@ export interface Station {
 const StationSearch: React.FC = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const stations = useStore(state => state.stations);
-  const setFilteredStations = useStore((state) => state.setFilteredStations);
+  const setFilteredStations = useStore(state => state.setFilteredStations);
 
   const handleSearch = (text: string) => {
     setSearchTerm(text);
-    const filtered = stations.filter((station) =>
-      station.name.toLowerCase().includes(text.toLowerCase())
+    const filtered = stations.filter(station =>
+      station.name.toLowerCase().includes(text.toLowerCase()),
     );
     setFilteredStations(filtered);
   };
@@ -56,9 +55,12 @@ const StationSearch: React.FC = () => {
           <TouchableOpacity
             onPress={handleClear}
             style={styles.clearButton}
-            hitSlop={{ top: 10, right: 10, bottom: 10, left: 10 }}
-          >
-          </TouchableOpacity>
+            hitSlop={{
+              top: 10,
+              right: 10,
+              bottom: 10,
+              left: 10,
+            }}></TouchableOpacity>
         )}
       </View>
     </View>

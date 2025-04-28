@@ -1,8 +1,23 @@
-import React, { useEffect, createContext, useContext, useState, forwardRef, useImperativeHandle } from 'react';
-import { Text, StyleSheet, Animated, TouchableOpacity, Platform, Dimensions, View } from 'react-native';
+import React, {
+  useEffect,
+  createContext,
+  useContext,
+  useState,
+  forwardRef,
+  useImperativeHandle,
+} from 'react';
+import {
+  Text,
+  StyleSheet,
+  Animated,
+  TouchableOpacity,
+  Platform,
+  Dimensions,
+  View,
+} from 'react-native';
 import theme from '../../theme';
 
-const { width } = Dimensions.get('window');
+const {width} = Dimensions.get('window');
 
 export type ToastType = 'success' | 'error' | 'warning' | 'info';
 
@@ -15,113 +30,110 @@ interface ToastProps {
 }
 
 // forwardRef 추가
-const Toast = forwardRef<{}, ToastProps>(({
-  visible,
-  type = 'info',
-  message,
-  duration = 3000,
-  onDismiss,
-}, ref) => {
-  const translateY = React.useRef(new Animated.Value(-100)).current;
-  const opacity = React.useRef(new Animated.Value(0)).current;
-  
-  // ref를 통해 외부에서 메서드 호출 가능하도록 설정
-  useImperativeHandle(ref, () => ({
-    hideToast: () => hideToast()
-  }));
-  
-  useEffect(() => {
-    // 이전 애니메이션 중단을 위한 변수
-    let animationSet: Animated.CompositeAnimation | null = null as any;
-    
-    if (visible) {
-      // 이전 애니메이션이 있으면 중단
-      if (animationSet) {
-        animationSet.stop(); // 정상 작동
+const Toast = forwardRef<{}, ToastProps>(
+  ({visible, type = 'info', message, duration = 3000, onDismiss}, ref) => {
+    const translateY = React.useRef(new Animated.Value(-100)).current;
+    const opacity = React.useRef(new Animated.Value(0)).current;
+
+    // ref를 통해 외부에서 메서드 호출 가능하도록 설정
+    useImperativeHandle(ref, () => ({
+      hideToast: () => hideToast(),
+    }));
+
+    useEffect(() => {
+      // 이전 애니메이션 중단을 위한 변수
+      let animationSet: Animated.CompositeAnimation | null = null as any;
+
+      if (visible) {
+        // 이전 애니메이션이 있으면 중단
+        if (animationSet) {
+          animationSet.stop(); // 정상 작동
+        }
+
+        animationSet = Animated.parallel([
+          Animated.timing(translateY, {
+            toValue: 0,
+            duration: 300,
+            useNativeDriver: true,
+          }),
+          Animated.timing(opacity, {
+            toValue: 1,
+            duration: 300,
+            useNativeDriver: true,
+          }),
+        ]);
+
+        animationSet.start();
+
+        const timer = setTimeout(() => {
+          hideToast();
+        }, duration);
+
+        return () => {
+          clearTimeout(timer);
+          if (animationSet) {
+            animationSet.stop();
+          }
+        };
       }
-      
-      animationSet = Animated.parallel([
+      // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [visible, duration]);
+
+    const hideToast = () => {
+      Animated.parallel([
         Animated.timing(translateY, {
-          toValue: 0,
+          toValue: -100,
           duration: 300,
           useNativeDriver: true,
         }),
         Animated.timing(opacity, {
-          toValue: 1,
+          toValue: 0,
           duration: 300,
           useNativeDriver: true,
         }),
-      ]);
-      
-      animationSet.start();
-      
-      const timer = setTimeout(() => {
-        hideToast();
-      }, duration);
-      
-      return () => {
-        clearTimeout(timer);
-        if (animationSet) {
-          animationSet.stop();
+      ]).start(() => {
+        if (onDismiss) {
+          onDismiss();
         }
-      };
-    }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [visible, duration]);
-  
-  const hideToast = () => {
-    Animated.parallel([
-      Animated.timing(translateY, {
-        toValue: -100,
-        duration: 300,
-        useNativeDriver: true,
-      }),
-      Animated.timing(opacity, {
-        toValue: 0,
-        duration: 300,
-        useNativeDriver: true,
-      }),
-    ]).start(() => {
-      if (onDismiss) {
-        onDismiss();
+      });
+    };
+
+    const getTypeStyles = () => {
+      switch (type) {
+        case 'success':
+          return styles.success;
+        case 'error':
+          return styles.error;
+        case 'warning':
+          return styles.warning;
+        case 'info':
+        default:
+          return styles.info;
       }
-    });
-  };
-  
-  const getTypeStyles = () => {
-    switch (type) {
-      case 'success':
-        return styles.success;
-      case 'error':
-        return styles.error;
-      case 'warning':
-        return styles.warning;
-      case 'info':
-      default:
-        return styles.info;
-    }
-  };
-  
-  if (!visible) return null;
-  
-  return (
-    <Animated.View
-      style={[
-        styles.container,
-        getTypeStyles(),
-        {
-          transform: [{ translateY }],
-          opacity,
-        },
-      ]}
-    >
-      <Text style={styles.message}>{message}</Text>
-      <TouchableOpacity onPress={hideToast} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
-        <Text style={styles.closeButton}>×</Text>
-      </TouchableOpacity>
-    </Animated.View>
-  );
-});
+    };
+
+    if (!visible) return null;
+
+    return (
+      <Animated.View
+        style={[
+          styles.container,
+          getTypeStyles(),
+          {
+            transform: [{translateY}],
+            opacity,
+          },
+        ]}>
+        <Text style={styles.message}>{message}</Text>
+        <TouchableOpacity
+          onPress={hideToast}
+          hitSlop={{top: 10, bottom: 10, left: 10, right: 10}}>
+          <Text style={styles.closeButton}>×</Text>
+        </TouchableOpacity>
+      </Animated.View>
+    );
+  },
+);
 
 const styles = StyleSheet.create({
   container: {
@@ -195,17 +207,21 @@ const defaultToastContext: ToastContextProps = {
 
 const ToastContext = createContext<ToastContextProps>(defaultToastContext);
 
-export const ToastProvider: React.FC<ToastProviderProps> = ({ children }) => {
+export const ToastProvider: React.FC<ToastProviderProps> = ({children}) => {
   const [toast, setToast] = useState<ToastState>({
     visible: false,
     message: '',
     type: 'info',
     duration: 3000,
   });
-  
+
   const toastRef = React.useRef(null);
-  
-  const showToast = (message: string, type: ToastType = 'info', duration: number = 3000) => {
+
+  const showToast = (
+    message: string,
+    type: ToastType = 'info',
+    duration: number = 3000,
+  ) => {
     // 이미 표시 중인 토스트가 있으면 먼저 닫기
     if (toast.visible) {
       hideToast();
@@ -227,21 +243,24 @@ export const ToastProvider: React.FC<ToastProviderProps> = ({ children }) => {
       });
     }
   };
-  
+
   const hideToast = () => {
-    setToast((prev) => ({ ...prev, visible: false }));
+    setToast(prev => ({...prev, visible: false}));
   };
-  
+
   // 값을 메모이제이션하여 불필요한 리렌더링 방지
-  const contextValue = React.useMemo(() => ({ 
-    showToast, 
-    hideToast 
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }), []);
-  
+  const contextValue = React.useMemo(
+    () => ({
+      showToast,
+      hideToast,
+    }),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [],
+  );
+
   return (
     <ToastContext.Provider value={contextValue}>
-      <View style={{ flex: 1 }}>
+      <View style={{flex: 1}}>
         {children}
         <Toast
           ref={toastRef}

@@ -1,5 +1,5 @@
 /* eslint-disable react-hooks/exhaustive-deps */
-import React, { useState, useCallback } from 'react';
+import React, {useState, useCallback} from 'react';
 import {
   View,
   StyleSheet,
@@ -8,16 +8,16 @@ import {
   ActivityIndicator,
   SafeAreaView,
 } from 'react-native';
-import { useFocusEffect } from '@react-navigation/native';
+import {useFocusEffect} from '@react-navigation/native';
 import Text from '../components/common/Text';
 import Button from '../components/common/Button';
-import { useToast } from '../components/common/Toast';
+import {useToast} from '../components/common/Toast';
 import MapView from '../components/Map/MapView';
 import StationPanel from '../components/Station/StationPanel';
 import SearchStationModal from '../components/Station/SearchStationModal';
-import { Station } from '../api/services/stationService';
-import { userService } from '../api/services/userService';
-import { authService } from '../api/services/authService';
+import {Station} from '../api/services/stationService';
+import {userService} from '../api/services/userService';
+import {authService} from '../api/services/authService';
 import theme from '../theme';
 import IconSearch from '../components/assets/icons/IconSearch';
 import Footer from '../components/Footer';
@@ -28,7 +28,7 @@ const HomePage: React.FC = () => {
   const [myStations, setMyStations] = useState<Station[]>([]);
   const [, setUserName] = useState<string>('');
   const [searchModalVisible, setSearchModalVisible] = useState(false);
-  const { showToast } = useToast();
+  const {showToast} = useToast();
 
   // 페이지 초기 로딩
   const loadData = async () => {
@@ -54,7 +54,7 @@ const HomePage: React.FC = () => {
   useFocusEffect(
     useCallback(() => {
       loadData();
-    }, [])
+    }, []),
   );
 
   // 새로고침 처리
@@ -103,10 +103,7 @@ const HomePage: React.FC = () => {
 
   return (
     <SafeAreaView style={styles.container}>
-      <StatusBar
-        barStyle="dark-content"
-        backgroundColor={theme.colors.white}
-      />
+      <StatusBar barStyle="dark-content" backgroundColor={theme.colors.white} />
 
       {/* 검색 바 */}
       <View style={styles.searchBarContainer}>
@@ -114,8 +111,7 @@ const HomePage: React.FC = () => {
           variant="outlined"
           style={styles.searchButton}
           leftIcon={<IconSearch color={theme.colors.gray[500]} size={20} />}
-          onPress={() => setSearchModalVisible(true)}
-        >
+          onPress={() => setSearchModalVisible(true)}>
           <Text color={theme.colors.gray[500]}>정류장을 검색하세요</Text>
         </Button>
       </View>
@@ -138,7 +134,7 @@ const HomePage: React.FC = () => {
         favoriteStations={myStations}
         toggleFavorite={toggleFavorite}
       />
-      <Footer/>
+      <Footer />
     </SafeAreaView>
   );
 };

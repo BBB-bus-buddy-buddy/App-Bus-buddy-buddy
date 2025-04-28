@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, {useEffect, useRef, useState} from 'react';
 import {
   View,
   Text,
@@ -11,27 +11,29 @@ import {
   RefreshControl,
   TextStyle,
 } from 'react-native';
-import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
-import { SafeAreaView } from 'react-native-safe-area-context';
-import { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import {useNavigation, useRoute, RouteProp} from '@react-navigation/native';
+import {SafeAreaView} from 'react-native-safe-area-context';
+import {NativeStackNavigationProp} from '@react-navigation/native-stack';
 import _Ionicons from 'react-native-vector-icons/Ionicons';
 
 import Footer from '../components/Footer';
-import { useToast } from '../components/common/Toast';
-import { busService, BusRealTimeStatus } from '../api/services/busService';
+import {useToast} from '../components/common/Toast';
+import {busService, BusRealTimeStatus} from '../api/services/busService';
 import theme from '../theme';
-
 
 Dimensions.get('window');
 const Ionicons = _Ionicons as unknown as React.ElementType;
 
 // 네비게이션 타입 정의
 type RootStackParamList = {
-  BusList: { routeId: string; routeName: string };
-  BusRoute: { busNumber: string };
+  BusList: {routeId: string; routeName: string};
+  BusRoute: {busNumber: string};
 };
 
-type BusListScreenNavigationProp = NativeStackNavigationProp<RootStackParamList, 'BusRoute'>;
+type BusListScreenNavigationProp = NativeStackNavigationProp<
+  RootStackParamList,
+  'BusRoute'
+>;
 type BusListScreenRouteProp = RouteProp<RootStackParamList, 'BusList'>;
 
 const BusListPage: React.FC = () => {
@@ -39,11 +41,11 @@ const BusListPage: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  
+
   const navigation = useNavigation<BusListScreenNavigationProp>();
   const route = useRoute<BusListScreenRouteProp>();
-  const { routeId, routeName } = route.params;
-  const { showToast } = useToast();
+  const {routeId, routeName} = route.params;
+  const {showToast} = useToast();
 
   // 해당 노선의 버스 목록 불러오기
   const fetchBusesByRoute = async () => {
@@ -52,15 +54,16 @@ const BusListPage: React.FC = () => {
       // API가 노선별 버스 조회를 지원하는 경우 해당 API 사용
       // 현재 API 구조에서는 모든 버스를 불러온 후 필터링하는 방식으로 구현
       const allBuses = await busService.getAllBuses();
-      
+
       // 해당 노선의 버스만 필터링
       // 실제 API에서는 이 로직이 서버측에서 처리되어야 함
-      const busesInRoute = allBuses.filter(bus => 
-        // 여기서는 임시로 라우트 이름이 일치하는 버스를 필터링
-        // 실제로는 버스 객체에 routeId 필드가 있어야 함
-        bus.routeName === routeName
+      const busesInRoute = allBuses.filter(
+        bus =>
+          // 여기서는 임시로 라우트 이름이 일치하는 버스를 필터링
+          // 실제로는 버스 객체에 routeId 필드가 있어야 함
+          bus.routeName === routeName,
       );
-      
+
       setBusList(busesInRoute);
       setError(null);
     } catch (error) {
@@ -78,7 +81,7 @@ const BusListPage: React.FC = () => {
   // 초기 로딩
   useEffect(() => {
     fetchBusesByRoute();
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [routeId]);
 
   // 새로고침 처리
@@ -89,46 +92,33 @@ const BusListPage: React.FC = () => {
 
   // 버스 선택 시 해당 버스의 상세 페이지로 이동
   const goToBusDetail = (busNumber: string) => {
-    navigation.navigate('BusRoute', { busNumber });
-  };
-
-  // 시간 포맷팅 함수 (타임스탬프 -> 시간)
-  const formatLastUpdateTime = (timestamp: number) => {
-    const date = new Date(timestamp);
-    const hours = date.getHours().toString().padStart(2, '0');
-    const minutes = date.getMinutes().toString().padStart(2, '0');
-    return `${hours}:${minutes}`;
+    navigation.navigate('BusRoute', {busNumber});
   };
 
   // 버스 아이템 렌더링
-  const renderBusItem = ({ item }: { item: BusRealTimeStatus }) => (
+  const renderBusItem = ({item}: {item: BusRealTimeStatus}) => (
     <TouchableOpacity
       style={styles.busItem}
       onPress={() => goToBusDetail(item.busNumber)}
-      activeOpacity={0.7}
-    >
+      activeOpacity={0.7}>
       <View style={styles.busIconContainer}>
-        <Ionicons 
-          name="bus" 
-          size={30} 
-          color={theme.colors.primary.default} 
-        />
+        <Ionicons name="bus" size={30} color={theme.colors.primary.default} />
       </View>
-      
+
       <View style={styles.busInfo}>
         <Text style={styles.busNumber}>{item.busNumber}</Text>
         <Text style={styles.currentStationText}>
           {item.currentStationName || '정보 없음'}
         </Text>
       </View>
-      
+
       <View style={styles.statusInfo}>
         <View style={styles.seatsContainer}>
           <View style={styles.progressBarContainer}>
-            <View 
+            <View
               style={[
-                styles.progressBar, 
-                { width: `${(item.occupiedSeats / item.totalSeats) * 100}%` }
+                styles.progressBar,
+                {width: `${(item.occupiedSeats / item.totalSeats) * 100}%`},
               ]}
             />
           </View>
@@ -136,15 +126,12 @@ const BusListPage: React.FC = () => {
             {item.availableSeats}/{item.totalSeats}석
           </Text>
         </View>
-        <Text style={styles.lastUpdateText}>
-          {formatLastUpdateTime(item.lastUpdateTime)}
-        </Text>
       </View>
-      
-      <Ionicons 
-        name="chevron-forward" 
-        size={20} 
-        color={theme.colors.gray[400]} 
+
+      <Ionicons
+        name="chevron-forward"
+        size={20}
+        color={theme.colors.gray[400]}
       />
     </TouchableOpacity>
   );
@@ -153,18 +140,16 @@ const BusListPage: React.FC = () => {
   const ListHeader = () => (
     <View style={styles.header}>
       <Text style={styles.headerText}>{routeName}</Text>
-      <Text style={styles.subHeaderText}>운행 중인 버스 ({busList.length})</Text>
+      <Text style={styles.subHeaderText}>
+        운행 중인 버스 ({busList.length})
+      </Text>
     </View>
   );
 
   // 빈 목록 컴포넌트
   const EmptyList = () => (
     <View style={styles.emptyContainer}>
-      <Ionicons 
-        name="bus-outline" 
-        size={50} 
-        color={theme.colors.gray[300]} 
-      />
+      <Ionicons name="bus-outline" size={50} color={theme.colors.gray[300]} />
       <Text style={styles.emptyText}>현재 운행 중인 버스가 없습니다.</Text>
     </View>
   );
@@ -182,16 +167,15 @@ const BusListPage: React.FC = () => {
   if (error && !refreshing) {
     return (
       <View style={styles.centerContainer}>
-        <Ionicons 
-          name="alert-circle-outline" 
-          size={50} 
-          color={theme.colors.system.error} 
+        <Ionicons
+          name="alert-circle-outline"
+          size={50}
+          color={theme.colors.system.error}
         />
         <Text style={styles.errorText}>{error}</Text>
-        <TouchableOpacity 
+        <TouchableOpacity
           style={styles.retryButton}
-          onPress={fetchBusesByRoute}
-        >
+          onPress={fetchBusesByRoute}>
           <Text style={styles.retryText}>다시 시도</Text>
         </TouchableOpacity>
       </View>
@@ -204,7 +188,7 @@ const BusListPage: React.FC = () => {
         ListHeaderComponent={ListHeader}
         data={busList}
         renderItem={renderBusItem}
-        keyExtractor={(item) => item.busNumber}
+        keyExtractor={item => item.busNumber}
         ListEmptyComponent={EmptyList}
         contentContainerStyle={styles.listContent}
         showsVerticalScrollIndicator={false}
@@ -362,7 +346,7 @@ export const AnimatedBusListPage: React.FC = () => {
   }, [fadeAnim]);
 
   return (
-    <Animated.View style={{ flex: 1, opacity: fadeAnim }}>
+    <Animated.View style={{flex: 1, opacity: fadeAnim}}>
       <BusListPage />
     </Animated.View>
   );

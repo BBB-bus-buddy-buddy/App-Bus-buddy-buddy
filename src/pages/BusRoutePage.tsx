@@ -4,263 +4,120 @@ import {
   Text,
   FlatList,
   StyleSheet,
-  Platform,
-  ActivityIndicator,
   TouchableOpacity,
+  TextStyle,
 } from 'react-native';
 import {useRoute, RouteProp, useNavigation} from '@react-navigation/native';
 import {SafeAreaView} from 'react-native-safe-area-context';
-import axios from 'axios';
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import useSelectedStationStore from '../store/useSelectedStationStore';
+import theme from '../theme';
+import {busService} from '../api/services/busService';
+import {LoadingContainer} from './LoadingPage';
 
-const API_BASE_URL = Platform.select({
-  ios: 'http://localhost:8088',
-  android: 'http://localhost:8088',
-});
-
+// 네비게이션 타입 정의
 type RootStackParamList = {
   BusRoute: {busNumber: string};
+  Home: undefined;
 };
 
+// 백엔드에서 반환하는 정류장 인터페이스
 interface Station {
-  idx?: number | undefined;
   id: string;
   name: string;
-  isCurrentStation?: boolean;
-  isPassed?: boolean;
-  remainingTime?: number;
-  location?: {
-    coordinates: number[];
-    type: string;
-  };
-}
-
-interface BusInfo {
-  id: string;
-  busNumber: string;
-  totalSeats: number;
-  occupiedSeats: number;
-  availableSeats: number;
   location: {
     coordinates: number[];
     type: string;
   };
-  stationNames: string[];
-  timestamp: string;
-  position?: number;
-  prevStationIdx: number;
-  prevStationId: string;
-  lastStationTime: string;
-  indicatorStyle?: {
-    top: number;
-  };
+  organizationId: string;
+  sequence: number;
+  isPassed: boolean;
+  isCurrentStation: boolean;
+  estimatedArrivalTime?: string | null;
 }
 
 const BusRoutePage: React.FC = () => {
   const route = useRoute<RouteProp<RootStackParamList, 'BusRoute'>>();
   const [stationList, setStationList] = useState<Station[]>([]);
-  const [busInfo, setBusInfo] = useState<BusInfo | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [timeToNextStation, setTimeToNextStation] = useState<number>(0);
+  const [estimatedTime, setEstimatedTime] = useState<string | null>(null);
   const {setSelectedStation} = useSelectedStationStore();
   const navigation = useNavigation();
 
   const busNumber = route.params.busNumber;
 
-  const fetchStationDetail = async (stationName: string, index: number) => {
-    try {
-      const response = await axios.get(`${API_BASE_URL}/api/station`, {
-        params: {stationName},
-      });
-
-      // stationName에 해당하는 정류장 데이터 찾기
-      const matchedStation = response.data.data.find(
-        (station: {name: string}) => station.name === stationName,
-      );
-
-      if (!matchedStation) {
-        console.error(`Station not found for name: ${stationName}`);
-        return null;
-      }
-
-      return {
-        ...matchedStation,
-        idx: index,
-      };
-    } catch (error) {
-      console.error('정류장 상세 정보 조회 실패:', error);
-      return null;
-    }
-  };
-
-  // const calculatePosition = (prevTime: number, nextTime: number): number => {
-  //   const totalTime = prevTime + nextTime;
-  //   return Math.floor((prevTime * 50) / totalTime);
-  // };
-
-  const fetchStationList = useCallback(async () => {
+  // 버스 정류장 정보 가져오기
+  const fetchBusStations = useCallback(async () => {
     try {
       setLoading(true);
-      const response = await axios.get(
-        `${API_BASE_URL}/api/bus/stationNames/${busNumber}`,
-      );
-      const stationNames = response.data.data;
 
-      const stationsWithDetails = await Promise.all(
-        stationNames.map(async (name: string, index: number) => {
-          const stationDetail = await fetchStationDetail(name, index);
-          return {
-            ...stationDetail,
-          };
-        }),
-      );
+      // 새로운 최적화된 API로 한 번에 모든 정보 가져오기
+      const stationsDetail = await busService.getBusStationsDetail(busNumber);
+      console.log('Fetched stations:', stationsDetail);
 
-      setStationList(stationsWithDetails);
+      // 정류장 목록 정렬 (sequence 기준)
+      const sortedStations = [...stationsDetail].sort(
+        (a, b) => a.sequence - b.sequence,
+      );
+      setStationList(sortedStations);
+
+      // 현재 정류장의 도착 예정 시간 찾기
+      const currentStation = sortedStations.find(
+        station => station.isCurrentStation,
+      );
+      if (currentStation && currentStation.estimatedArrivalTime) {
+        setEstimatedTime(currentStation.estimatedArrivalTime);
+      } else {
+        setEstimatedTime(null);
+      }
+
       setError(null);
     } catch (error) {
-      console.error('정류장 목록을 불러오는 중 오류 발생:', error);
+      console.error('정류장 정보를 불러오는 중 오류 발생:', error);
       setError('정류장 정보를 불러오는데 실패했습니다.');
     } finally {
       setLoading(false);
     }
   }, [busNumber]);
-  
-  //-----------------------------------------------------
-  
-  const fetchBusInfo = useCallback(async () => {
-    // parseDurationToSeconds 함수를 내부로 이동
-    const parseDurationToSeconds = (durationMessage: string) => {
-      const matches = durationMessage.match(/(\d+)분\s*(\d+)?초?/);
-      if (matches) {
-        const minutes = parseInt(matches[1], 10);
-        const seconds = matches[2] ? parseInt(matches[2], 10) : 0;
-        return minutes * 60 + seconds;
-      }
-      return 0;
-    };
-  
-    // calculateArrivalTime 함수도 내부에 위치
-    const calculateArrivalTime = async (busId: string, stationId: string | undefined) => {
-      try {
-        const token = await AsyncStorage.getItem('token');
-        const response = await axios.get(
-          `${API_BASE_URL}/api/kakao-api/arrival-time/multi`,
-          {
-            params: {
-              busId: busId,
-              stationId: stationId,
-            },
-            headers: {
-              'Content-Type': 'application/json',
-              Authorization: `Bearer ${token}`,
-            },
-          },
-        );
-  
-        return response.data.data;
-      } catch (error) {
-        return null;
-      }
-    };
-  
-    try {
-      const response = await axios.get<{data: BusInfo}>(
-        `${API_BASE_URL}/api/bus/${busNumber}`,
-      );
-      const busData = response.data.data;
-  
-      if (!busData?.location || stationList.length === 0) return;
-  
-      const nextStation = stationList.find((item) => item?.idx === (busData?.prevStationIdx + 1));
-      
-      if (!nextStation) return;
-  
-      const arrivalTimeData = await calculateArrivalTime(busData.id, nextStation.id);
-      const estimatedTime = arrivalTimeData?.estimatedTime;
-      
-      if (!estimatedTime) return;
-  
-      const remainingSeconds = parseDurationToSeconds(estimatedTime);
-      setTimeToNextStation(remainingSeconds);
-  
-      setStationList(prevList => {
-        const updatedList = prevList.map((station, index) => ({
-          ...station,
-          isPassed: index <= busData.prevStationIdx,
-          isCurrentStation: index === busData.prevStationIdx+1,
-          remainingTime: index === busData.prevStationIdx+1 ? remainingSeconds : undefined,
-        }));
-  
-        if (JSON.stringify(updatedList) !== JSON.stringify(prevList)) {
-          return updatedList;
-        }
-        return prevList;
-      });
-  
-      // 항상 25로 고정 (전체 높이 50의 중간 지점)
-      const fixedPosition = 0;
 
-      setBusInfo({
-        ...busData,
-        position: fixedPosition,
-        indicatorStyle: {
-          top: fixedPosition,
-        },
-      });
-    } catch (error) {
-      console.error('버스 정보를 불러오는 중 오류 발생:', error);
+  // 시간 문자열에서 분 추출
+  const extractMinutes = (timeString?: string): number => {
+    if (!timeString) return 0;
+
+    const matches = timeString.match(/(\d+)분/);
+    if (matches && matches[1]) {
+      return parseInt(matches[1], 10);
     }
-  }, [busNumber, stationList]);
+    return 0;
+  };
 
+  // 초기 데이터 로딩
   useEffect(() => {
-    let mounted = true;
-    const init = async () => {
-      if (mounted) {
-        await fetchStationList();
-      }
-    };
-    init();
-    return () => {
-      mounted = false;
-    };
-  }, [fetchStationList]);
+    fetchBusStations();
+  }, [fetchBusStations]);
 
+  // 주기적 업데이트 (30초마다)
   useEffect(() => {
-    let isSubscribed = true;
+    const intervalId = setInterval(() => {
+      fetchBusStations();
+    }, 30000);
 
-    const updateBusInfo = async () => {
-      if (isSubscribed && stationList.length > 0) {
-        await fetchBusInfo();
-      }
-    };
+    return () => clearInterval(intervalId);
+  }, [fetchBusStations]);
 
-    updateBusInfo();
-
-    return () => {
-      isSubscribed = false;
-    };
-  }, [fetchBusInfo, stationList]);
-
+  // 정류장 클릭 핸들러
   const handleStationClick = useCallback(
     (station: Station) => {
-      const convertedStation: {
-        id: string;
-        name: string;
-        location?: {
-          x: number;
-          y: number;
-        };
-      } = {
+      const convertedStation = {
         id: station.id,
         name: station.name,
-        location: station.location
-          ? {
-              x: station.location.coordinates[0],
-              y: station.location.coordinates[1],
-            }
-          : undefined,
+        location:
+          station.location && station.location.coordinates
+            ? {
+                x: station.location.coordinates[0], // 경도
+                y: station.location.coordinates[1], // 위도
+              }
+            : undefined,
       };
 
       setSelectedStation(convertedStation);
@@ -269,14 +126,16 @@ const BusRoutePage: React.FC = () => {
     [navigation, setSelectedStation],
   );
 
+  // 정류장 아이템 렌더링
   const renderStationItem = useCallback(
-    ({item, index}: {item: Station; index: number}) => {
-      const isBusHere = busInfo && index === busInfo.prevStationIdx+1;
-      const shouldShowBus = busInfo && index === busInfo.prevStationIdx+1 &&
-        typeof busInfo.position === 'number';
+    ({item}: {item: Station}) => {
+      const isBusHere = item.isCurrentStation;
+      const index = item.sequence;
 
       return (
-        <TouchableOpacity onPress={() => handleStationClick(item)}>
+        <TouchableOpacity
+          onPress={() => handleStationClick(item)}
+          activeOpacity={0.7}>
           <View style={styles.stationItem}>
             <View style={styles.stationLineContainer}>
               <View
@@ -287,12 +146,8 @@ const BusRoutePage: React.FC = () => {
                   index === 0 && styles.firstLine,
                   index === stationList.length - 1 && styles.lastLine,
                 ]}>
-                {shouldShowBus && busInfo.indicatorStyle && (
-                  <View
-                    style={[
-                      styles.busIndicatorContainer,
-                      {top: busInfo.indicatorStyle.top},
-                    ]}>
+                {isBusHere && (
+                  <View style={styles.busIndicatorContainer}>
                     <View style={styles.busIndicator}>
                       <Text style={styles.busEmoji}>🚌</Text>
                     </View>
@@ -317,9 +172,9 @@ const BusRoutePage: React.FC = () => {
                 ]}>
                 {item.name}
               </Text>
-              {item.remainingTime && (
+              {isBusHere && item.estimatedArrivalTime && (
                 <Text style={styles.remainingTime}>
-                  {Math.ceil(item.remainingTime / 60)}분 후 도착
+                  {extractMinutes(item.estimatedArrivalTime)}분 후 도착
                 </Text>
               )}
             </View>
@@ -327,15 +182,15 @@ const BusRoutePage: React.FC = () => {
         </TouchableOpacity>
       );
     },
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [busInfo],
+    [stationList.length, handleStationClick],
   );
 
+  // 로딩 및 에러 상태 처리
   if (loading) {
     return (
-      <View style={styles.centerContainer}>
-        <ActivityIndicator size="large" color="#F05034" />
-      </View>
+      <LoadingContainer loading={loading}>
+        <View />
+      </LoadingContainer>
     );
   }
 
@@ -352,9 +207,9 @@ const BusRoutePage: React.FC = () => {
       <View style={styles.header}>
         <Text style={styles.headerText}>
           <Text style={styles.busNumber}>{busNumber}</Text>
-          {timeToNextStation > 0 && (
+          {estimatedTime && (
             <Text style={styles.headerRoute}>
-              {` | 약 ${Math.ceil(timeToNextStation / 60)}분 후 도착`}
+              {` | 약 ${extractMinutes(estimatedTime)}분 후 도착`}
             </Text>
           )}
         </Text>
@@ -363,7 +218,7 @@ const BusRoutePage: React.FC = () => {
       <FlatList
         data={stationList}
         renderItem={renderStationItem}
-        keyExtractor={(item, index) => index.toString()}
+        keyExtractor={item => item.id}
         style={styles.stationList}
         contentContainerStyle={styles.listContent}
         showsVerticalScrollIndicator={false}
@@ -375,43 +230,43 @@ const BusRoutePage: React.FC = () => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: theme.colors.white,
   },
   centerContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: '#FFFFFF',
+    backgroundColor: theme.colors.white,
   },
   header: {
-    paddingHorizontal: 16,
-    paddingVertical: 12,
+    paddingHorizontal: theme.spacing.md,
+    paddingVertical: theme.spacing.sm,
     borderBottomWidth: 1,
-    borderBottomColor: '#E5E5E5',
+    borderBottomColor: theme.colors.gray[200],
   },
   headerText: {
-    fontSize: 18,
-    color: '#333333',
+    fontSize: theme.typography.text.lg.fontSize,
+    color: theme.colors.gray[800],
   },
   busNumber: {
-    fontWeight: 'bold',
-    color: '#333333',
+    fontWeight: theme.typography.fontWeight.bold as TextStyle['fontWeight'],
+    color: theme.colors.gray[900],
   },
   headerRoute: {
-    fontSize: 16,
-    color: '#666666',
+    fontSize: theme.typography.text.md.fontSize,
+    color: theme.colors.gray[600],
   },
   stationList: {
     flex: 1,
   },
   listContent: {
-    paddingVertical: 8,
-    paddingHorizontal: 16,
+    paddingVertical: theme.spacing.xs,
+    paddingHorizontal: theme.spacing.md,
   },
   stationItem: {
     flexDirection: 'row',
     alignItems: 'flex-start',
-    paddingVertical: 12,
+    paddingVertical: theme.spacing.sm,
   },
   stationLineContainer: {
     width: 24,
@@ -424,7 +279,7 @@ const styles = StyleSheet.create({
     width: 2,
     top: 0,
     bottom: 0,
-    backgroundColor: '#E5E5E5',
+    backgroundColor: theme.colors.gray[200],
     left: '50%',
     marginLeft: -1,
   },
@@ -435,35 +290,36 @@ const styles = StyleSheet.create({
     bottom: '50%',
   },
   passedLine: {
-    backgroundColor: '#4CAF50',
+    backgroundColor: theme.colors.system.success,
   },
   currentLine: {
-    backgroundColor: '#F05034',
+    backgroundColor: theme.colors.primary.default,
   },
   stationDot: {
     width: 12,
     height: 12,
     borderRadius: 6,
-    backgroundColor: '#E5E5E5',
+    backgroundColor: theme.colors.gray[200],
     borderWidth: 2,
-    borderColor: '#FFFFFF',
+    borderColor: theme.colors.white,
     marginTop: 19,
     zIndex: 1,
   },
   passedDot: {
-    backgroundColor: '#4CAF50',
+    backgroundColor: theme.colors.system.success,
   },
   currentDot: {
     width: 16,
     height: 16,
     borderRadius: 8,
-    backgroundColor: '#F05034',
+    backgroundColor: theme.colors.primary.default,
     borderWidth: 3,
     marginTop: 17,
   },
   busIndicatorContainer: {
     position: 'absolute',
     left: -11,
+    top: 0,
     transform: [{translateY: -12}],
     zIndex: 2,
   },
@@ -471,24 +327,14 @@ const styles = StyleSheet.create({
     width: 24,
     height: 24,
     borderRadius: 12,
-    backgroundColor: '#F05034',
+    backgroundColor: theme.colors.primary.default,
     justifyContent: 'center',
     alignItems: 'center',
-    ...Platform.select({
-      ios: {
-        shadowColor: '#000000',
-        shadowOffset: {width: 0, height: 2},
-        shadowOpacity: 0.25,
-        shadowRadius: 4,
-      },
-      android: {
-        elevation: 4,
-      },
-    }),
+    ...theme.shadows.md,
   },
   busEmoji: {
     fontSize: 14,
-    color: '#FFFFFF',
+    color: theme.colors.white,
   },
   stationInfoContainer: {
     flex: 1,
@@ -496,24 +342,24 @@ const styles = StyleSheet.create({
     marginLeft: 12,
   },
   stationName: {
-    fontSize: 16,
-    color: '#333333',
+    fontSize: theme.typography.text.md.fontSize,
+    color: theme.colors.gray[800],
     marginTop: 15,
   },
   currentStationName: {
-    color: '#F05034',
-    fontWeight: 'bold',
+    color: theme.colors.primary.default,
+    fontWeight: theme.typography.fontWeight.bold as TextStyle['fontWeight'],
   },
   remainingTime: {
-    fontSize: 12,
-    color: '#666666',
+    fontSize: theme.typography.text.sm.fontSize,
+    color: theme.colors.gray[600],
     marginTop: 4,
   },
   errorText: {
-    fontSize: 16,
-    color: '#F05034',
+    fontSize: theme.typography.text.md.fontSize,
+    color: theme.colors.system.error,
     textAlign: 'center',
-    padding: 16,
+    padding: theme.spacing.md,
   },
 });
 

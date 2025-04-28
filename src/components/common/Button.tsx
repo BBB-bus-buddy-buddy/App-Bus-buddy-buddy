@@ -84,16 +84,19 @@ const Button: React.FC<ButtonProps> = ({
   // 텍스트 스타일 계산
   const getTextStyles = (): StyleProp<TextStyle> => {
     const textStyles: StyleProp<TextStyle>[] = [styles.text];
-    const sizeTextKey = `${size}Text` as 'smallText' | 'mediumText' | 'largeText';
+    const sizeTextKey = `${size}Text` as
+      | 'smallText'
+      | 'mediumText'
+      | 'largeText';
     textStyles.push(styles[sizeTextKey]);
     switch (variant) {
       case 'filled':
-        textStyles.push({ color: theme.colors.white });
+        textStyles.push({color: theme.colors.white});
         break;
       case 'tonal':
       case 'outlined':
       case 'text':
-        textStyles.push({ color });
+        textStyles.push({color});
         break;
     }
     if (disabled) {
@@ -107,22 +110,21 @@ const Button: React.FC<ButtonProps> = ({
       style={getButtonStyles()}
       disabled={disabled || isLoading}
       activeOpacity={0.7}
-      {...rest}
-    >
+      {...rest}>
       {isLoading ? (
         <ActivityIndicator
           size="small"
           color={variant === 'filled' ? theme.colors.white : color}
         />
       ) : (
-        <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-          {leftIcon && <View style={{ marginRight: 6 }}>{leftIcon}</View>}
+        <View style={{flexDirection: 'row', alignItems: 'center'}}>
+          {leftIcon && <View style={{marginRight: 6}}>{leftIcon}</View>}
           {typeof children === 'string' ? (
             <Text style={getTextStyles()}>{children}</Text>
           ) : (
             children
           )}
-          {rightIcon && <View style={{ marginLeft: 6 }}>{rightIcon}</View>}
+          {rightIcon && <View style={{marginLeft: 6}}>{rightIcon}</View>}
         </View>
       )}
     </TouchableOpacity>

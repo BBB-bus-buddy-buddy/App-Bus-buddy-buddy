@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, {useState, useEffect, useCallback} from 'react';
 import {
   View,
   Text,
@@ -9,9 +9,9 @@ import {
   Linking,
   Image,
 } from 'react-native';
-import { useNavigation } from '@react-navigation/native';
+import {useNavigation} from '@react-navigation/native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import {SafeAreaView} from 'react-native-safe-area-context';
 import InAppBrowser from 'react-native-inappbrowser-reborn';
 import axios from 'axios';
 import GoogleLogo from '../../assets/logos/google.svg';
@@ -42,14 +42,14 @@ const APP_SCHEME_URL = Platform.select({
   android: 'com.busbuddybuddy://oauth2callback',
 }) as string;
 
-const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
+const LoginPage: React.FC<LoginPageProps> = ({onLoginSuccess}) => {
   const navigation = useNavigation();
   const [loading, setLoading] = useState(false);
 
   // 초기 토큰 체크 및 라우팅
   useEffect(() => {
     checkTokenAndNavigate();
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const handleUrl = useCallback(async (url: string) => {
@@ -57,7 +57,7 @@ const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
       const token = url.split('token=')[1].split('&')[0];
       await handleLoginSuccess(token);
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
   // onLoginSuccess와 fetchUserRole, handleRoleBasedNavigation도 의존성에 추가해야 하지만
   // 이 함수들은 컴포넌트 내부에 정의되어 있어 useCallback의 의존성 배열에 추가하면 순환 참조가 발생할 수 있음
@@ -66,27 +66,27 @@ const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
   // 딥링크 이벤트 리스너 설정 - handleUrl을 의존성 배열에 추가
   useEffect(() => {
     // 앱이 실행 중이지 않을 때 열린 URL 처리
-    Linking.getInitialURL().then((url) => {
+    Linking.getInitialURL().then(url => {
       if (url) {
         handleUrl(url);
       }
     });
 
     // 앱이 실행 중일 때의 URL 처리를 위한 리스너
-    const linkingListener = Linking.addEventListener('url', ({ url }) => {
+    const linkingListener = Linking.addEventListener('url', ({url}) => {
       handleUrl(url);
     });
 
     return () => {
       linkingListener.remove();
     };
-  }, [handleUrl]);  // handleUrl을 의존성 배열에 추가
+  }, [handleUrl]); // handleUrl을 의존성 배열에 추가
 
   const checkTokenAndNavigate = async () => {
     try {
       setLoading(true);
       const token = await AsyncStorage.getItem('token');
-      
+
       if (token) {
         const userRole = await fetchUserRole(token);
         await handleRoleBasedNavigation(userRole);
@@ -106,10 +106,10 @@ const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
         `${API_BASE_URL}/api/auth/user`,
         {
           headers: {
-            'Authorization': `Bearer ${token}`,
+            Authorization: `Bearer ${token}`,
             'Content-Type': 'application/json',
           },
-        }
+        },
       );
       return response.data.data.role;
     } catch (error) {
@@ -137,12 +137,12 @@ const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
   const handleLogin = async () => {
     try {
       setLoading(true);
-      
+
       const available = await InAppBrowser.isAvailable();
-      
+
       if (available) {
         // URL 리스너는 이미 useEffect에서 설정되어 있음
-        
+
         const result = await InAppBrowser.openAuth(
           LOGIN_URL,
           APP_SCHEME_URL, // 플랫폼별 앱 스킴 URL 사용
@@ -151,9 +151,9 @@ const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
             showTitle: false,
             enableUrlBarHiding: true,
             enableDefaultShare: false,
-          }
+          },
         );
-        
+
         if (result.type === 'success' && result.url) {
           await handleUrl(result.url);
         }
@@ -171,7 +171,7 @@ const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
     try {
       await AsyncStorage.setItem('token', token);
       onLoginSuccess?.();
-      
+
       // 로그인 성공 후 역할 확인 및 라우팅
       const userRole = await fetchUserRole(token);
       await handleRoleBasedNavigation(userRole);
@@ -190,9 +190,9 @@ const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
           style={styles.busIcon}
           resizeMode="contain"
         />
-        
+
         <Text style={styles.title}>버스 버디버디</Text>
-        
+
         {loading ? (
           <View style={styles.loadingContainer}>
             <ActivityIndicator size="large" color="#4CAF50" />
@@ -203,13 +203,8 @@ const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
               style={styles.button}
               onPress={handleLogin}
               activeOpacity={0.8}
-              disabled={loading}
-            >
-              <GoogleLogo
-                style={styles.logo}
-                width={20}
-                height={20}
-              />
+              disabled={loading}>
+              <GoogleLogo style={styles.logo} width={20} height={20} />
               <Text style={styles.buttonText}>구글 계정으로 로그인</Text>
             </TouchableOpacity>
           </View>

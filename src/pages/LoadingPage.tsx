@@ -1,14 +1,8 @@
-import React, { useEffect, useRef, useState } from 'react';
-import {
-  View,
-  StyleSheet,
-  Animated,
-  Dimensions,
-  Platform,
-} from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import React, {useEffect, useRef, useState} from 'react';
+import {View, StyleSheet, Animated, Dimensions, Platform} from 'react-native';
+import {useSafeAreaInsets} from 'react-native-safe-area-context';
 
-const { width } = Dimensions.get('window');
+const {width} = Dimensions.get('window');
 const BUS_ICON_SIZE = 170; // 17rem을 픽셀로 변환
 const ANIMATION_DURATION = 1200; // 1.2초
 
@@ -30,8 +24,8 @@ const LoadingPage: React.FC = () => {
           toValue: -BUS_ICON_SIZE,
           duration: 0,
           useNativeDriver: true,
-        })
-      ]).start((result) => {
+        }),
+      ]).start(result => {
         if (result.finished) {
           startAnimation();
         }
@@ -46,20 +40,21 @@ const LoadingPage: React.FC = () => {
   }, [translateX]);
 
   return (
-    <View style={[
-      styles.container,
-      {
-        paddingTop: insets.top,
-        paddingBottom: insets.bottom,
-      }
-    ]}>
+    <View
+      style={[
+        styles.container,
+        {
+          paddingTop: insets.top,
+          paddingBottom: insets.bottom,
+        },
+      ]}>
       <View style={styles.logoContainer}>
         <Animated.Image
           source={require('../../assets/images/busIcon.png')}
           style={[
             styles.busIcon,
             {
-              transform: [{ translateX }],
+              transform: [{translateX}],
             },
           ]}
           resizeMode="contain"
@@ -110,7 +105,7 @@ export default React.memo(LoadingPage);
 export const LoadingContainer: React.FC<{
   loading: boolean;
   children: React.ReactNode;
-}> = ({ loading, children }) => {
+}> = ({loading, children}) => {
   if (loading) {
     return <LoadingPage />;
   }
@@ -120,7 +115,7 @@ export const LoadingContainer: React.FC<{
 // 로딩 오버레이 컴포넌트
 export const LoadingOverlay: React.FC<{
   visible: boolean;
-}> = ({ visible }) => {
+}> = ({visible}) => {
   if (!visible) return null;
 
   return (
@@ -144,9 +139,9 @@ const overlayStyles = StyleSheet.create({
 // 로딩 상태 관리를 위한 커스텀 훅
 export const useLoading = (initialState = false) => {
   const [loading, setLoading] = useState(initialState);
-  
+
   const withLoading = async <T extends any>(
-    promise: Promise<T>
+    promise: Promise<T>,
   ): Promise<T> => {
     setLoading(true);
     try {

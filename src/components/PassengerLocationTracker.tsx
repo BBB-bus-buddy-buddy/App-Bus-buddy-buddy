@@ -7,8 +7,7 @@ import {createPassengerWebSocket} from '../api/services/websocketService';
 import {authService} from '../api/services/authService';
 import {useToast} from '../components/common/Toast';
 import theme from '../theme';
-import { request, PERMISSIONS, RESULTS } from 'react-native-permissions';
-
+import {request, PERMISSIONS, RESULTS} from 'react-native-permissions';
 
 // 위치 추적 활성화 상태를 저장하는 AsyncStorage 키
 const TRACKING_ACTIVE_KEY = 'location_tracking_active';
@@ -45,10 +44,10 @@ const PassengerLocationTracker: React.FC<PassengerLocationTrackerProps> = ({
 
   // 위치 권한 요청
   const requestLocationPermission = async () => {
-      if (Platform.OS === 'ios') {
-        const status = await request(PERMISSIONS.IOS.LOCATION_WHEN_IN_USE);
-        return status === RESULTS.GRANTED;
-      }
+    if (Platform.OS === 'ios') {
+      const status = await request(PERMISSIONS.IOS.LOCATION_ALWAYS);
+      return status === RESULTS.GRANTED;
+    }
 
     if (Platform.OS === 'android') {
       try {
@@ -63,6 +62,27 @@ const PassengerLocationTracker: React.FC<PassengerLocationTrackerProps> = ({
             buttonPositive: '확인',
           },
         );
+
+        // 백그라운드 위치 권한도 요청 (Android 10+)
+        if (parseInt(Platform.Version as unknown as string, 10) >= 29) {
+          const backgroundGranted = await PermissionsAndroid.request(
+            PermissionsAndroid.PERMISSIONS.ACCESS_BACKGROUND_LOCATION,
+            {
+              title: '백그라운드 위치 권한',
+              message:
+                '앱이 백그라운드에서도 위치를 감지하려면 항상 허용 권한이 필요합니다.',
+              buttonNeutral: '나중에 묻기',
+              buttonNegative: '취소',
+              buttonPositive: '확인',
+            },
+          );
+
+          return (
+            granted === PermissionsAndroid.RESULTS.GRANTED &&
+            backgroundGranted === PermissionsAndroid.RESULTS.GRANTED
+          );
+        }
+
         return granted === PermissionsAndroid.RESULTS.GRANTED;
       } catch (err) {
         console.warn(err);
@@ -244,6 +264,18 @@ const PassengerLocationTracker: React.FC<PassengerLocationTrackerProps> = ({
         setStatusMessage(
           '위치 권한이 없어 자동 탑승 기능을 사용할 수 없습니다',
         );
+
+        // 위치 권한이 중요하므로 사용자에게 알림
+        Alert.alert(
+          '위치 권한 필요',
+          '자동 탑승 기능을 사용하려면 위치 권한이 필요합니다. 설정에서 권한을 허용해주세요.',
+          [
+            {
+              text: '확인',
+              style: 'default',
+            },
+          ],
+        );
         return;
       }
 
@@ -354,7 +386,7 @@ const PassengerLocationTracker: React.FC<PassengerLocationTrackerProps> = ({
     return () => {
       subscription.remove();
     };
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [websocketConnected, userInfo, isTracking]);
 
   // 컴포넌트 마운트 시 초기화
@@ -378,7 +410,7 @@ const PassengerLocationTracker: React.FC<PassengerLocationTrackerProps> = ({
                 startLocationTracking();
               }
             } else {
-              // 앱이 활성화되었으므로 새로 추적 시작
+              // 항상 추적 활성화 - 위치 추적 자동 시작
               startLocationTracking();
             }
           });
@@ -389,23 +421,13 @@ const PassengerLocationTracker: React.FC<PassengerLocationTrackerProps> = ({
     }
 
     return () => {
-      // 컴포넌트 언마운트 시 정리
-      if (watchIdRef.current !== null) {
-        Geolocation.clearWatch(watchIdRef.current);
-        watchIdRef.current = null;
-      }
-
-      if (websocketRef.current) {
-        websocketRef.current.disconnect();
-        websocketRef.current = null;
-      }
-
+      // 컴포넌트 언마운트 시 정리 (백그라운드에서도 계속 작동)
       if (timerIdRef.current) {
         clearInterval(timerIdRef.current);
         timerIdRef.current = null;
       }
     };
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isEnabled]);
 
   // 상태에 따른 메시지 업데이트
@@ -421,6 +443,7 @@ const PassengerLocationTracker: React.FC<PassengerLocationTrackerProps> = ({
     }
   }, [isEnabled, websocketConnected, isTracking, trackingTimeLeft]);
 
+  // isEnabled가 false여도 UI를 숨기지만 실제 추적은 계속 수행
   if (!isEnabled) {
     return null;
   }
@@ -430,8 +453,7 @@ const PassengerLocationTracker: React.FC<PassengerLocationTrackerProps> = ({
       <Text style={styles.statusText}>{statusMessage}</Text>
       {isTracking && currentLocation && (
         <Text style={styles.locationText}>
-          현재 위치: {currentLocation.latitude.toFixed(6)},{' '}
-          {currentLocation.longitude.toFixed(6)}
+          {`현재 위치: ${currentLocation.latitude.toFixed(6)}, ${currentLocation.longitude.toFixed(6)}`}
         </Text>
       )}
     </View>
@@ -441,7 +463,7 @@ const PassengerLocationTracker: React.FC<PassengerLocationTrackerProps> = ({
 const styles = StyleSheet.create({
   container: {
     padding: 10,
-    backgroundColor: theme.colors.primary.default + '10',
+    backgroundColor: theme.colors.primary.default + '10', // 약간 투명한 배경
     borderRadius: 8,
     margin: 8,
   },

@@ -12,7 +12,7 @@ interface WebSocketOptions {
 }
 
 const API_BASE_URL = Platform.select({
-  ios: 'http://localhost:8088',
+  ios: 'http://devse.gonetis.com:12589',
   android: 'http://devse.gonetis.com:12589',
 });
 

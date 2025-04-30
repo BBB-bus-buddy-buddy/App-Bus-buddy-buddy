@@ -4,7 +4,7 @@ import {Platform} from 'react-native';
 
 // API 기본 URL 설정
 export const API_BASE_URL = Platform.select({
-  ios: 'http://localhost:8088', // iOS 시뮬레이터에서 localhost 접근용
+  ios: 'http://devse.gonetis.com:12589', // iOS 시뮬레이터에서 localhost 접근용
   android: 'http://devse.gonetis.com:12589', // Android 에뮬레이터에서 localhost 접근용
 });
 

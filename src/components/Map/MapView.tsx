@@ -1,5 +1,11 @@
 import React, {useEffect, useState, useCallback, useRef} from 'react';
-import {View, StyleSheet, TouchableOpacity} from 'react-native';
+import {
+  View,
+  StyleSheet,
+  PermissionsAndroid,
+  Platform,
+  TouchableOpacity,
+} from 'react-native';
 import Geolocation from '@react-native-community/geolocation';
 import {
   Camera,
@@ -15,14 +21,14 @@ import useSelectedStationStore from '../../store/useSelectedStationStore';
 import {useToast} from '../../components/common/Toast';
 import MyLocationIcon from '../../../assets/logos/myLocation.svg';
 
-// 내 위치 아이콘 이미지 (SVG 대신 이미지 사용)
-
-// 지도 카메라 초기 위치 (기본값: 서울)
 const DEFAULT_CAMERA: Camera = {
   latitude: 37.5665,
   longitude: 126.978,
   zoom: 15,
 };
+
+type LocationTrackingMode = 'None' | 'NoFollow' | 'Follow' | 'Face';
+const DEFAULT_TRACKING_MODE: LocationTrackingMode = 'NoFollow';
 
 interface BusPosition {
   busNumber: string;
@@ -32,56 +38,96 @@ interface BusPosition {
 }
 
 interface MapViewProps {
-  stations?: Station[]; // 옵션으로 외부에서 정류장 목록 전달받을 수 있음
+  stations?: Station[];
 }
 
 const MapView: React.FC<MapViewProps> = ({stations}) => {
-  // 웹소켓 참조 변수
-  const websocketRef = useRef<ReturnType<
-    typeof createPassengerWebSocket
-  > | null>(null);
+  const websocketRef = useRef<ReturnType<typeof createPassengerWebSocket> | null>(null);
+  const naverMapRef = useRef<any>(null);
 
-  // 상태 관리
   const [myLocation, setMyLocation] = useState<Camera>(DEFAULT_CAMERA);
   const [stationPositions, setStationPositions] = useState<Station[]>([]);
   const [busPositions, setBusPositions] = useState<BusPosition[]>([]);
   const [camera, setCamera] = useState<Camera>(DEFAULT_CAMERA);
+  const [isStationFocused, setIsStationFocused] = useState<boolean>(false);
   const [isLoading, setIsLoading] = useState(true);
+  const [, setLocationTrackingMode] = useState<LocationTrackingMode>(DEFAULT_TRACKING_MODE);
+  const [hasLocationPermission, setHasLocationPermission] = useState<boolean>(false);
 
-  // 선택된 정류장 전역 상태 관리
+  // 추가: 사용자의 지도 조작 여부
+  const [isUserInteracting, setIsUserInteracting] = useState<boolean>(false);
+
   const {selectedStation, setSelectedStation} = useSelectedStationStore();
   const {showToast} = useToast();
 
-  // 현재 위치 초기화
-  const initializeLocation = useCallback(() => {
+  // 위치 권한 요청
+  const requestLocationPermission = useCallback(async () => {
+    try {
+      if (Platform.OS === 'android') {
+        const granted = await PermissionsAndroid.request(
+          PermissionsAndroid.PERMISSIONS.ACCESS_FINE_LOCATION,
+          {
+            title: '위치 접근 권한',
+            message: '버스 위치 서비스를 이용하기 위해 위치 접근 권한이 필요합니다.',
+            buttonNeutral: '나중에 묻기',
+            buttonNegative: '취소',
+            buttonPositive: '확인',
+          },
+        );
+        const hasPermission = granted === PermissionsAndroid.RESULTS.GRANTED;
+        setHasLocationPermission(hasPermission);
+        return hasPermission;
+      } else {
+        Geolocation.requestAuthorization();
+        setHasLocationPermission(true);
+        return true;
+      }
+    } catch (err) {
+      console.warn('위치 권한 요청 중 오류 발생:', err);
+      setHasLocationPermission(false);
+      return false;
+    }
+  }, []);
+
+  // 위치 정보 가져오기
+  const initializeLocation = useCallback(async () => {
+    const hasPermission = await requestLocationPermission();
+    if (!hasPermission) {
+      setMyLocation(DEFAULT_CAMERA);
+      setCamera(DEFAULT_CAMERA);
+      return Promise.resolve();
+    }
+
     return new Promise<void>(resolve => {
       Geolocation.getCurrentPosition(
         position => {
           const {latitude, longitude} = position.coords;
-          setMyLocation({latitude, longitude, zoom: 15});
+          const newLocation = {latitude, longitude, zoom: 15};
+          setMyLocation(newLocation);
+          // 정류장에 포커스 중이거나 사용자가 직접 조작 중이 아닐 때만 카메라 이동
+          if (!isStationFocused && !isUserInteracting) {
+            setCamera(newLocation);
+          }
           resolve();
         },
         error => {
           console.error('위치 정보 오류:', error);
           showToast('위치 정보를 가져올 수 없습니다.', 'warning');
           setMyLocation(DEFAULT_CAMERA);
+          setCamera(DEFAULT_CAMERA);
           resolve();
         },
         {enableHighAccuracy: true, timeout: 15000, maximumAge: 10000},
       );
     });
-  }, [showToast]);
+  }, [requestLocationPermission, showToast, isStationFocused, isUserInteracting]);
 
-  // 정류장 데이터 불러오기
   const fetchStations = useCallback(async () => {
     try {
-      // 외부에서 전달받은 정류장이 있으면 사용, 아니면 API 호출
       if (stations && stations.length > 0) {
         setStationPositions(stations);
         return;
       }
-
-      // API 호출로 정류장 데이터 가져오기
       const stationsData = await stationService.getAllStations();
       setStationPositions(stationsData);
     } catch (error) {
@@ -90,7 +136,6 @@ const MapView: React.FC<MapViewProps> = ({stations}) => {
     }
   }, [stations, showToast]);
 
-  // 웹소켓 메시지 처리
   const handleWebSocketMessage = useCallback((data: any) => {
     try {
       if (typeof data === 'string') {
@@ -98,8 +143,7 @@ const MapView: React.FC<MapViewProps> = ({stations}) => {
         const newBusPositions = rows
           .filter(Boolean)
           .map((row: string) => {
-            // eslint-disable-next-line @typescript-eslint/no-unused-vars
-            const [busNumber, lng, lat, seats] = row.split(',');
+            const [busNumber, lng, lat] = row.split(',');
             return {
               busNumber: busNumber.trim(),
               location: {
@@ -112,7 +156,6 @@ const MapView: React.FC<MapViewProps> = ({stations}) => {
               !isNaN(pos.location.coordinates[0]) &&
               !isNaN(pos.location.coordinates[1]),
           );
-
         setBusPositions(newBusPositions);
       }
     } catch (error) {
@@ -120,9 +163,7 @@ const MapView: React.FC<MapViewProps> = ({stations}) => {
     }
   }, []);
 
-  // 웹소켓 연결 설정
   useEffect(() => {
-    // 웹소켓 서비스 인스턴스 생성
     websocketRef.current = createPassengerWebSocket({
       onOpen: () => {
         console.log('버스 위치 웹소켓 연결됨');
@@ -136,11 +177,7 @@ const MapView: React.FC<MapViewProps> = ({stations}) => {
         console.log('버스 위치 웹소켓 연결 종료');
       },
     });
-
-    // 웹소켓 연결
     websocketRef.current.connect('/ws/passenger');
-
-    // 컴포넌트 언마운트 시 웹소켓 연결 종료
     return () => {
       if (websocketRef.current) {
         websocketRef.current.disconnect();
@@ -149,37 +186,91 @@ const MapView: React.FC<MapViewProps> = ({stations}) => {
     };
   }, [handleWebSocketMessage, showToast]);
 
-  // 초기화 (위치, 정류장 데이터)
+  // 추적 모드 설정 함수 - 항상 Follow로 설정
+  const setTrackingMode = useCallback(() => {
+    setLocationTrackingMode(DEFAULT_TRACKING_MODE);
+    if (naverMapRef.current && naverMapRef.current.setLocationTrackingMode) {
+      naverMapRef.current.setLocationTrackingMode(DEFAULT_TRACKING_MODE);
+    }
+  }, []);
+
+  // 내 위치로 카메라 이동
+  const moveToMyLocation = useCallback(() => {
+    if (myLocation) {
+      setCamera({
+        latitude: myLocation.latitude,
+        longitude: myLocation.longitude,
+        zoom: 15,
+      });
+      setIsStationFocused(false);
+      setIsUserInteracting(false); // 내 위치 버튼 클릭 시 자동 포커싱 재개
+      setTrackingMode();
+    }
+  }, [myLocation, setTrackingMode]);
+
+  // 현재 위치 갱신
+  const updateCurrentLocation = useCallback(() => {
+    Geolocation.getCurrentPosition(
+      position => {
+        const {latitude, longitude} = position.coords;
+        const newLocation = {latitude, longitude, zoom: 15};
+        setMyLocation(newLocation);
+        // 정류장 포커스 중이거나 사용자가 직접 조작 중이 아닐 때만 카메라 이동
+        if (!isStationFocused && !isUserInteracting) {
+          setCamera(newLocation);
+        }
+        setTrackingMode();
+      },
+      error => {
+        console.error('위치 정보 오류:', error);
+        showToast('위치 정보를 가져올 수 없습니다.', 'warning');
+      },
+      {enableHighAccuracy: true, timeout: 5000},
+    );
+  }, [isStationFocused, isUserInteracting, setTrackingMode, showToast]);
+
+  // 주기적으로 위치 업데이트
+  useEffect(() => {
+    if (hasLocationPermission) {
+      updateCurrentLocation();
+      const locationUpdateTimer = setInterval(() => {
+        updateCurrentLocation();
+      }, 3000);
+      return () => clearInterval(locationUpdateTimer);
+    }
+  }, [hasLocationPermission, updateCurrentLocation]);
+
   useEffect(() => {
     let isActive = true;
-
     const initialize = async () => {
       try {
         setIsLoading(true);
         await initializeLocation();
         await fetchStations();
-
         if (isActive) {
           setIsLoading(false);
+          if (hasLocationPermission) {
+            setTrackingMode();
+          }
         }
       } catch (error) {
         console.error('초기화 오류:', error);
         showToast('지도를 초기화하는 중 오류가 발생했습니다.', 'error');
-
-        if (isActive) {
-          setIsLoading(false);
-        }
+        if (isActive) setIsLoading(false);
       }
     };
-
     initialize();
-
     return () => {
       isActive = false;
     };
-  }, [initializeLocation, fetchStations, showToast]);
+  }, [
+    initializeLocation,
+    fetchStations,
+    showToast,
+    hasLocationPermission,
+    setTrackingMode,
+  ]);
 
-  // 선택된 정류장이 변경되면 카메라 이동
   useEffect(() => {
     if (selectedStation && selectedStation.location) {
       setCamera({
@@ -196,16 +287,34 @@ const MapView: React.FC<MapViewProps> = ({stations}) => {
     }
   }, [selectedStation, myLocation]);
 
-  // 내 위치로 이동하는 함수
-  const moveToMyLocation = useCallback(() => {
-    if (myLocation) {
-      setCamera({
-        latitude: myLocation.latitude,
-        longitude: myLocation.longitude,
-        zoom: 15,
+
+  // 위치 버튼 클릭 핸들러
+  const handleLocationButtonClick = useCallback(() => {
+    if (!hasLocationPermission) {
+      requestLocationPermission().then(granted => {
+        if (granted) {
+          setSelectedStation(null);
+          moveToMyLocation();
+        } else {
+          showToast('위치 추적을 위해 위치 권한이 필요합니다.', 'warning');
+        }
       });
+      return;
     }
-  }, [myLocation]);
+    setSelectedStation(null);
+    moveToMyLocation();
+  }, [
+    hasLocationPermission,
+    requestLocationPermission,
+    setSelectedStation,
+    moveToMyLocation,
+    showToast,
+  ]);
+
+  // 지도 조작 이벤트 핸들러
+  const handleCameraChange = () => {
+    setIsUserInteracting(true);
+  };
 
   if (isLoading) {
     return <LoadingPage />;
@@ -213,23 +322,33 @@ const MapView: React.FC<MapViewProps> = ({stations}) => {
 
   return (
     <View style={styles.container}>
+      {/* 위치 버튼 */}
+      <TouchableOpacity
+        style={styles.myLocationButton}
+        onPress={handleLocationButtonClick}
+        activeOpacity={0.7}>
+        <View style={[styles.locationButtonIcon, styles.locationButtonActive]}>
+          <MyLocationIcon width={20} height={20} style={styles.locationIcon} />
+        </View>
+      </TouchableOpacity>
+
       <NaverMapView
+        ref={naverMapRef}
         style={styles.map}
         camera={camera}
         minZoom={5}
         maxZoom={20}
-        isShowLocationButton={false}
-        isLiteModeEnabled={false}>
-        {/* 내 위치 마커 */}
-        {myLocation && (
-          <NaverMapMarkerOverlay
-            width={24}
-            height={24}
-            longitude={myLocation.longitude}
-            latitude={myLocation.latitude}
-          />
-        )}
-
+        isShowLocationButton={true}
+        isLiteModeEnabled={false}
+        onCameraChanged={handleCameraChange}
+        layerGroups={{
+          TRANSIT: true,
+          BUILDING: true,
+          BICYCLE: false,
+          CADASTRAL: false,
+          MOUNTAIN: false,
+          TRAFFIC: false,
+        }}>
         {/* 정류장 마커 */}
         {stationPositions.map(
           station =>
@@ -280,19 +399,6 @@ const MapView: React.FC<MapViewProps> = ({stations}) => {
           />
         ))}
       </NaverMapView>
-
-      {/* 내 위치로 이동하는 버튼 */}
-      <TouchableOpacity
-        style={styles.myLocationButton}
-        onPress={moveToMyLocation}
-        activeOpacity={0.7}>
-        <MyLocationIcon
-          width={22}
-          height={22}
-          fill={theme.colors.primary.default}
-          style={styles.locationIcon}
-        />
-      </TouchableOpacity>
     </View>
   );
 };
@@ -312,19 +418,30 @@ const styles = StyleSheet.create({
   },
   myLocationButton: {
     position: 'absolute',
-    bottom: 100,
+    top: 16,
     right: 16,
-    backgroundColor: theme.colors.white,
-    borderRadius: theme.borderRadius.full,
     width: 44,
     height: 44,
     justifyContent: 'center',
     alignItems: 'center',
+    zIndex: 1000,
     ...theme.shadows.md,
   },
+  locationButtonIcon: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: theme.colors.white,
+    ...theme.shadows.sm,
+  },
+  locationButtonActive: {
+    backgroundColor: 'white',
+  },
   locationIcon: {
-    width: 22,
-    height: 22,
+    width: 20,
+    height: 20,
     tintColor: theme.colors.primary.default,
   },
 });

@@ -4,10 +4,10 @@ import {
   StyleSheet,
   StatusBar,
   ActivityIndicator,
-  SafeAreaView,
   Alert,
   TouchableOpacity,
 } from 'react-native';
+import {SafeAreaView} from 'react-native-safe-area-context';
 import {useFocusEffect} from '@react-navigation/native';
 import Text from '../components/common/Text';
 import Button from '../components/common/Button';
@@ -141,7 +141,7 @@ const HomePage: React.FC = () => {
   useFocusEffect(
     useCallback(() => {
       loadData();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+      // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []),
   );
 
@@ -230,7 +230,7 @@ const HomePage: React.FC = () => {
   }
 
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView style={styles.container} edges={['top']}>
       <StatusBar barStyle="dark-content" backgroundColor={theme.colors.white} />
 
       {/* 상단 고정 영역 */}
@@ -238,23 +238,17 @@ const HomePage: React.FC = () => {
         {/* 자동 탑승 기능 상태 표시 (토글 스위치 제거) */}
         <View style={styles.autoTrackingContainer}>
           <View style={styles.autoTrackingContent}>
-            <Text variant="md" weight="semiBold">
-              자동 탑승 감지
-            </Text>
-            <View style={styles.autoTrackingDescContainer}>
-              <Text
-                variant="sm"
-                color={theme.colors.gray[600]}
-                style={styles.autoTrackingDesc}>
-                위치 기반으로 버스 탑승을 자동 감지합니다.
+            <View style={styles.trackingTitleContainer}>
+              <Text variant="md" weight="semiBold">
+                자동 탑승 감지
               </Text>
               {trackingInfo.active && (
-                <View style={styles.trackingStatusContainer}>
+                <>
                   <View style={styles.statusDot} />
                   <Text variant="sm" color={theme.colors.system.info}>
                     {trackingInfo.timeLeft}
                   </Text>
-                </View>
+                </>
               )}
             </View>
           </View>
@@ -270,7 +264,10 @@ const HomePage: React.FC = () => {
               />
             </TouchableOpacity>
             <View style={styles.activeIndicator}>
-              <Text variant="sm" weight="medium" color={theme.colors.system.success}>
+              <Text
+                variant="sm"
+                weight="medium"
+                color={theme.colors.system.success}>
                 활성화됨
               </Text>
             </View>
@@ -282,7 +279,7 @@ const HomePage: React.FC = () => {
           <Button
             variant="outlined"
             style={styles.searchButton}
-            leftIcon={<IconSearch color={theme.colors.gray[500]} size={20} />}
+            leftIcon={<IconSearch color={theme.colors.gray[500]} size={18} />}
             onPress={() => setSearchModalVisible(true)}>
             <Text color={theme.colors.gray[500]}>정류장을 검색하세요</Text>
           </Button>
@@ -334,15 +331,19 @@ const styles = StyleSheet.create({
   autoTrackingContainer: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    alignItems: 'flex-start',
-    paddingHorizontal: theme.spacing.lg,
-    paddingVertical: theme.spacing.md,
+    alignItems: 'center',
+    paddingHorizontal: theme.spacing.md,
+    paddingVertical: theme.spacing.sm,
     backgroundColor: theme.colors.white,
     borderBottomWidth: 1,
     borderBottomColor: theme.colors.gray[100],
   },
   autoTrackingContent: {
     flex: 1,
+  },
+  trackingTitleContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
   },
   autoTrackingDescContainer: {
     marginTop: 2,
@@ -354,37 +355,32 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
   },
-  trackingStatusContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginTop: 4,
-  },
   statusDot: {
-    width: 6,
-    height: 6,
-    borderRadius: 3,
+    width: 5,
+    height: 5,
+    borderRadius: 2.5,
     backgroundColor: theme.colors.system.info,
-    marginRight: 6,
+    marginHorizontal: 6,
   },
   restartButton: {
-    width: 28,
-    height: 28,
-    borderRadius: 14,
+    width: 24,
+    height: 24,
+    borderRadius: 12,
     backgroundColor: 'rgba(0, 122, 255, 0.1)',
     justifyContent: 'center',
     alignItems: 'center',
-    marginRight: theme.spacing.sm,
+    marginRight: theme.spacing.xs,
   },
   activeIndicator: {
-    paddingHorizontal: theme.spacing.sm,
-    paddingVertical: theme.spacing.xs,
+    paddingHorizontal: theme.spacing.xs,
+    paddingVertical: 2,
     backgroundColor: theme.colors.system.success + '20',
     borderRadius: theme.borderRadius.sm,
   },
   searchBarContainer: {
     width: '100%',
-    paddingHorizontal: theme.spacing.lg,
-    paddingVertical: theme.spacing.sm,
+    paddingHorizontal: theme.spacing.md,
+    paddingVertical: theme.spacing.xs,
     backgroundColor: theme.colors.white,
   },
   searchButton: {

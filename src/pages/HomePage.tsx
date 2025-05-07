@@ -16,7 +16,7 @@ import MapView from '../components/Map/MapView';
 import StationPanel from '../components/Station/StationPanel';
 import SearchStationModal from '../components/Station/SearchStationModal';
 import PassengerLocationTracker from '../components/PassengerLocationTracker';
-import {Station} from '../api/services/stationService';
+import {Station, stationService} from '../api/services/stationService';
 import {userService} from '../api/services/userService';
 import {authService} from '../api/services/authService';
 import theme from '../theme';
@@ -32,6 +32,8 @@ const HomePage: React.FC = () => {
   const [, setIsRefreshing] = useState(false);
   const [myStations, setMyStations] = useState<Station[]>([]);
   const [searchModalVisible, setSearchModalVisible] = useState(false);
+  const [allStations, setAllStations] = useState<Station[]>([]);
+
   // 자동 추적은 항상 활성화 상태로 설정
   const [trackingInfo, setTrackingInfo] = useState<{
     active: boolean;
@@ -85,6 +87,7 @@ const HomePage: React.FC = () => {
     return `${hours}시간 ${minutes}분 남음`;
   };
 
+
   // 위치 추적 즉시 재시작
   const handleRestartTracking = async () => {
     // 새로운 시작 시간 설정
@@ -125,6 +128,9 @@ const HomePage: React.FC = () => {
       // 자동 추적 항상 활성화 상태로 설정 (추적을 사용하는데 필요한 설정)
       await AsyncStorage.setItem('auto_tracking_enabled', 'true');
       await AsyncStorage.setItem('location_tracking_active', 'true');
+
+      const stationsData = await stationService.getAllStations();
+      setAllStations(stationsData);
 
       // 즐겨찾기 정류장 로드
       const favoriteStations = await userService.getMyStations();
@@ -291,7 +297,7 @@ const HomePage: React.FC = () => {
 
       {/* 지도 영역 */}
       <View style={styles.mapContainer}>
-        <MapView stations={myStations} />
+        <MapView stations={allStations}/>
       </View>
 
       {/* 정류장 패널 */}

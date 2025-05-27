@@ -51,7 +51,7 @@ const MyPage: React.FC = () => {
       }
 
       const response = await axios.get(
-        'http://devse.gonetis.com:12589/api/auth/user',
+        'http://devse.kr:12589/api/auth/user',
         {
           headers: {
             Authorization: `Bearer ${token}`,
@@ -93,7 +93,7 @@ const MyPage: React.FC = () => {
               }
 
               await axios.post(
-                'http://devse.gonetis.com:12589/api/auth/withdrawal',
+                'http://devse.kr:12589/api/auth/withdrawal',
                 {},
                 {
                   headers: {

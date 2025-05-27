@@ -27,8 +27,8 @@ target 'Busbuddybuddy' do
 
   ## 추가된 부분: 위치 권한 핸들러 등록
   setup_permissions([
-    'LocationWhenInUse' # 위치 권한
-    # 필요시 'Camera', 'PhotoLibrary' 등 추가
+    'LocationWhenInUse', 
+    'LocationAlways'
   ])
 
   post_install do |installer|

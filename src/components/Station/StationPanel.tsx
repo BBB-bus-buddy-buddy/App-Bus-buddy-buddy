@@ -18,9 +18,9 @@ const {height} = Dimensions.get('window');
 
 // 패널 높이 설정
 const SNAP_POINTS = {
-  TOP: height * 0.9,
-  MIDDLE: height * 0.6,
-  BOTTOM: height * 0.3,
+  TOP: height * 0.87,
+  MIDDLE: height * 0.47,
+  BOTTOM: height * 0.27,
 };
 
 interface StationPanelProps {

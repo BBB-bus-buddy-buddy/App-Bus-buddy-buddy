@@ -1,5 +1,15 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <!-- 위치 권한 추가 -->
     <uses-permission android:name="android.permission.INTERNET" />
+    <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
+    <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
+    <uses-permission android:name="android.permission.ACCESS_BACKGROUND_LOCATION" />
+    
+    <!-- 네이버 맵 관련 권한 -->
+    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
+    <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" />
+    <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" />
+    
     <application
       android:name=".MainApplication"
       android:label="@string/app_name"
@@ -31,7 +41,7 @@
         </intent-filter>
       </activity>
         <meta-data
-          android:name="com.naver.maps.map.NCP_KEY_ID"
-          android:value="rqbzthf6si" />
+          android:name="com.naver.maps.map.CLIENT_ID"
+          android:value="9g8nh0a5nh" />
     </application>
 </manifest>

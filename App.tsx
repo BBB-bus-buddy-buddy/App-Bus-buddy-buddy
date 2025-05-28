@@ -86,43 +86,6 @@ const App = () => {
                 headerShown: true,
               })}
             />
-
-            {/* Admin Routes
-          <Stack.Screen 
-            name="Admin"
-            component={AdminPage}
-            options={{ headerShown: true, title: '관리자 페이지' }}
-          />
-          <Stack.Screen
-            name="AdminBusStation"
-            component={BusStationPage}
-            options={{ headerShown: true, title: '정류장 관리' }}
-          />
-          <Stack.Screen
-            name="AdminBusStationCreate"
-            component={AdminBusStationCreatePage}
-            options={{ headerShown: true, title: '정류장 추가' }}
-          />
-          <Stack.Screen
-            name="AdminBusStationEdit"
-            component={BusStationEditPage}
-            options={{ headerShown: true, title: '정류장 수정' }}
-          />
-          <Stack.Screen
-            name="AdminBusList"
-            component={AdminBusListPage}
-            options={{ headerShown: true, title: '버스 관리' }}
-          />
-          <Stack.Screen
-            name="AdminBusCreate"
-            component={AdminBusCreatePage}
-            options={{ headerShown: true, title: '버스 추가' }}
-          />
-          <Stack.Screen
-            name="AdminBusEdit"
-            component={AdminBusEditPage}
-            options={{ headerShown: true, title: '버스 수정' }}
-          /> */}
           </Stack.Navigator>
         </NavigationContainer>
         </ToastProvider>

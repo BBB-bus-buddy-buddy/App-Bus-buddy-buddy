@@ -4,11 +4,10 @@ import {
   StyleSheet,
   StatusBar,
   ActivityIndicator,
-  SafeAreaView,
-  Switch,
   Alert,
   TouchableOpacity,
 } from 'react-native';
+import {SafeAreaView} from 'react-native-safe-area-context';
 import {useFocusEffect} from '@react-navigation/native';
 import Text from '../components/common/Text';
 import Button from '../components/common/Button';
@@ -17,7 +16,7 @@ import MapView from '../components/Map/MapView';
 import StationPanel from '../components/Station/StationPanel';
 import SearchStationModal from '../components/Station/SearchStationModal';
 import PassengerLocationTracker from '../components/PassengerLocationTracker';
-import {Station} from '../api/services/stationService';
+import {Station, stationService} from '../api/services/stationService';
 import {userService} from '../api/services/userService';
 import {authService} from '../api/services/authService';
 import theme from '../theme';
@@ -33,7 +32,9 @@ const HomePage: React.FC = () => {
   const [, setIsRefreshing] = useState(false);
   const [myStations, setMyStations] = useState<Station[]>([]);
   const [searchModalVisible, setSearchModalVisible] = useState(false);
-  const [autoTrackingEnabled, setAutoTrackingEnabled] = useState(false);
+  const [allStations, setAllStations] = useState<Station[]>([]);
+
+  // 자동 추적은 항상 활성화 상태로 설정
   const [trackingInfo, setTrackingInfo] = useState<{
     active: boolean;
     timeLeft: string;
@@ -43,12 +44,9 @@ const HomePage: React.FC = () => {
   });
   const {showToast} = useToast();
 
-  // 자동 탑승 설정 로드
-  const loadAutoTrackingSettings = async () => {
+  // 추적 정보 로드
+  const loadTrackingInfo = async () => {
     try {
-      const enabled = await AsyncStorage.getItem('auto_tracking_enabled');
-      setAutoTrackingEnabled(enabled === 'true');
-
       // 추적 상태 정보 로드
       const active = await AsyncStorage.getItem('location_tracking_active');
       const startTimeStr = await AsyncStorage.getItem(
@@ -69,7 +67,7 @@ const HomePage: React.FC = () => {
         });
       }
     } catch (error) {
-      console.error('Failed to load tracking settings:', error);
+      console.error('Failed to load tracking info:', error);
     }
   };
 
@@ -89,53 +87,6 @@ const HomePage: React.FC = () => {
     return `${hours}시간 ${minutes}분 남음`;
   };
 
-  // 자동 탑승 설정 저장
-  const saveAutoTrackingSettings = async (enabled: boolean) => {
-    try {
-      await AsyncStorage.setItem(
-        'auto_tracking_enabled',
-        enabled ? 'true' : 'false',
-      );
-
-      if (!enabled) {
-        // 비활성화 시 추적 상태도 비활성화
-        await AsyncStorage.setItem('location_tracking_active', 'false');
-      }
-    } catch (error) {
-      console.error('Failed to save tracking settings:', error);
-    }
-  };
-
-  // 자동 탑승 기능 활성화/비활성화 처리
-  const handleAutoTrackingToggle = (value: boolean) => {
-    if (value) {
-      // 자동 탑승 활성화
-      Alert.alert(
-        '자동 탑승 기능 활성화',
-        '위치 기반 자동 탑승 기능을 사용하시겠습니까?\n\n이 기능은 앱 사용 시 활성화되며, 앱을 닫아도 2시간 동안 백그라운드에서 계속 작동합니다.',
-        [
-          {
-            text: '취소',
-            style: 'cancel',
-          },
-          {
-            text: '활성화',
-            onPress: async () => {
-              setAutoTrackingEnabled(true);
-              await saveAutoTrackingSettings(true);
-              // PassengerLocationTracker 컴포넌트에서 추적 시작
-              showToast('자동 탑승 기능이 활성화되었습니다.', 'success');
-            },
-          },
-        ],
-      );
-    } else {
-      // 자동 탑승 비활성화
-      setAutoTrackingEnabled(false);
-      saveAutoTrackingSettings(false);
-      showToast('자동 탑승 기능이 비활성화되었습니다.', 'info');
-    }
-  };
 
   // 위치 추적 즉시 재시작
   const handleRestartTracking = async () => {
@@ -171,8 +122,15 @@ const HomePage: React.FC = () => {
       // eslint-disable-next-line @typescript-eslint/no-unused-vars
       const userInfo = await authService.getUserInfo();
 
-      // 자동 탑승 설정 로드
-      await loadAutoTrackingSettings();
+      // 추적 정보 로드
+      await loadTrackingInfo();
+
+      // 자동 추적 항상 활성화 상태로 설정 (추적을 사용하는데 필요한 설정)
+      await AsyncStorage.setItem('auto_tracking_enabled', 'true');
+      await AsyncStorage.setItem('location_tracking_active', 'true');
+
+      const stationsData = await stationService.getAllStations();
+      setAllStations(stationsData);
 
       // 즐겨찾기 정류장 로드
       const favoriteStations = await userService.getMyStations();
@@ -189,7 +147,7 @@ const HomePage: React.FC = () => {
   useFocusEffect(
     useCallback(() => {
       loadData();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+      // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []),
   );
 
@@ -203,7 +161,7 @@ const HomePage: React.FC = () => {
       if (hasShownInfo !== 'true') {
         Alert.alert(
           '자동 탑승 기능 안내',
-          '위치 기반 자동 탑승 기능은 앱 사용 시 활성화되며, 앱을 닫아도 최대 2시간 동안 백그라운드에서 계속 작동합니다.\n\n' +
+          '위치 기반 자동 탑승 기능은 앱 사용 시 항상 활성화되며, 앱을 닫아도 최대 2시간 동안 백그라운드에서 계속 작동합니다.\n\n' +
             '앱을 다시 열면 2시간 타이머가 초기화됩니다.',
           [{text: '확인', style: 'default'}],
         );
@@ -216,24 +174,22 @@ const HomePage: React.FC = () => {
 
   // 추적 상태 정보 1분마다 갱신
   useEffect(() => {
-    if (autoTrackingEnabled) {
-      const timer = setInterval(async () => {
-        const startTimeStr = await AsyncStorage.getItem(
-          'location_tracking_start_time',
-        );
-        if (startTimeStr) {
-          const startTime = parseInt(startTimeStr, 10);
-          const timeLeft = calculateRemainingTime(startTime);
-          setTrackingInfo(prev => ({
-            ...prev,
-            timeLeft,
-          }));
-        }
-      }, 60000); // 1분마다 업데이트
+    const timer = setInterval(async () => {
+      const startTimeStr = await AsyncStorage.getItem(
+        'location_tracking_start_time',
+      );
+      if (startTimeStr) {
+        const startTime = parseInt(startTimeStr, 10);
+        const timeLeft = calculateRemainingTime(startTime);
+        setTrackingInfo(prev => ({
+          ...prev,
+          timeLeft,
+        }));
+      }
+    }, 60000); // 1분마다 업데이트
 
-      return () => clearInterval(timer);
-    }
-  }, [autoTrackingEnabled]);
+    return () => clearInterval(timer);
+  }, []);
 
   // 새로고침 처리
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
@@ -280,60 +236,47 @@ const HomePage: React.FC = () => {
   }
 
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView style={styles.container} edges={['top']}>
       <StatusBar barStyle="dark-content" backgroundColor={theme.colors.white} />
 
       {/* 상단 고정 영역 */}
       <View style={styles.topContainer}>
-        {/* 자동 탑승 기능 설정 */}
+        {/* 자동 탑승 기능 상태 표시 (토글 스위치 제거) */}
         <View style={styles.autoTrackingContainer}>
           <View style={styles.autoTrackingContent}>
-            <Text variant="md" weight="semiBold">
-              자동 탑승 감지
-            </Text>
-            <View style={styles.autoTrackingDescContainer}>
-              <Text
-                variant="sm"
-                color={theme.colors.gray[600]}
-                style={styles.autoTrackingDesc}>
-                위치 기반으로 버스 탑승을 자동 감지합니다.
+            <View style={styles.trackingTitleContainer}>
+              <Text variant="md" weight="semiBold">
+                자동 탑승 감지
               </Text>
-              {autoTrackingEnabled && trackingInfo.active && (
-                <View style={styles.trackingStatusContainer}>
+              {trackingInfo.active && (
+                <>
                   <View style={styles.statusDot} />
                   <Text variant="sm" color={theme.colors.system.info}>
                     {trackingInfo.timeLeft}
                   </Text>
-                </View>
+                </>
               )}
             </View>
           </View>
           <View style={styles.controlsContainer}>
-            {autoTrackingEnabled && (
-              <TouchableOpacity
-                style={styles.restartButton}
-                onPress={handleRestartTracking}
-                activeOpacity={0.7}>
-                <Ionicons
-                  name="refresh"
-                  size={14}
-                  color={theme.colors.system.info}
-                />
-              </TouchableOpacity>
-            )}
-            <Switch
-              value={autoTrackingEnabled}
-              onValueChange={handleAutoTrackingToggle}
-              trackColor={{
-                false: theme.colors.gray[300],
-                true: theme.colors.primary.light,
-              }}
-              thumbColor={
-                autoTrackingEnabled
-                  ? theme.colors.primary.default
-                  : theme.colors.gray[100]
-              }
-            />
+            <TouchableOpacity
+              style={styles.restartButton}
+              onPress={handleRestartTracking}
+              activeOpacity={0.7}>
+              <Ionicons
+                name="refresh"
+                size={14}
+                color={theme.colors.system.info}
+              />
+            </TouchableOpacity>
+            <View style={styles.activeIndicator}>
+              <Text
+                variant="sm"
+                weight="medium"
+                color={theme.colors.system.success}>
+                활성화됨
+              </Text>
+            </View>
           </View>
         </View>
 
@@ -342,7 +285,7 @@ const HomePage: React.FC = () => {
           <Button
             variant="outlined"
             style={styles.searchButton}
-            leftIcon={<IconSearch color={theme.colors.gray[500]} size={20} />}
+            leftIcon={<IconSearch color={theme.colors.gray[500]} size={18} />}
             onPress={() => setSearchModalVisible(true)}>
             <Text color={theme.colors.gray[500]}>정류장을 검색하세요</Text>
           </Button>
@@ -350,13 +293,11 @@ const HomePage: React.FC = () => {
       </View>
 
       {/* 위치 추적 컴포넌트 (UI에 영향 없이 백그라운드에서 작동) */}
-      {autoTrackingEnabled && (
-        <PassengerLocationTracker isEnabled={autoTrackingEnabled} />
-      )}
+      <PassengerLocationTracker isEnabled={true} />
 
       {/* 지도 영역 */}
       <View style={styles.mapContainer}>
-        <MapView stations={myStations} />
+        <MapView stations={allStations}/>
       </View>
 
       {/* 정류장 패널 */}
@@ -396,15 +337,19 @@ const styles = StyleSheet.create({
   autoTrackingContainer: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    alignItems: 'flex-start',
-    paddingHorizontal: theme.spacing.lg,
-    paddingVertical: theme.spacing.md,
+    alignItems: 'center',
+    paddingHorizontal: theme.spacing.md,
+    paddingVertical: theme.spacing.sm,
     backgroundColor: theme.colors.white,
     borderBottomWidth: 1,
     borderBottomColor: theme.colors.gray[100],
   },
   autoTrackingContent: {
     flex: 1,
+  },
+  trackingTitleContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
   },
   autoTrackingDescContainer: {
     marginTop: 2,
@@ -416,31 +361,32 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
   },
-  trackingStatusContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginTop: 4,
-  },
   statusDot: {
-    width: 6,
-    height: 6,
-    borderRadius: 3,
+    width: 5,
+    height: 5,
+    borderRadius: 2.5,
     backgroundColor: theme.colors.system.info,
-    marginRight: 6,
+    marginHorizontal: 6,
   },
   restartButton: {
-    width: 28,
-    height: 28,
-    borderRadius: 14,
+    width: 24,
+    height: 24,
+    borderRadius: 12,
     backgroundColor: 'rgba(0, 122, 255, 0.1)',
     justifyContent: 'center',
     alignItems: 'center',
-    marginRight: theme.spacing.sm,
+    marginRight: theme.spacing.xs,
+  },
+  activeIndicator: {
+    paddingHorizontal: theme.spacing.xs,
+    paddingVertical: 2,
+    backgroundColor: theme.colors.system.success + '20',
+    borderRadius: theme.borderRadius.sm,
   },
   searchBarContainer: {
     width: '100%',
-    paddingHorizontal: theme.spacing.lg,
-    paddingVertical: theme.spacing.sm,
+    paddingHorizontal: theme.spacing.md,
+    paddingVertical: theme.spacing.xs,
     backgroundColor: theme.colors.white,
   },
   searchButton: {

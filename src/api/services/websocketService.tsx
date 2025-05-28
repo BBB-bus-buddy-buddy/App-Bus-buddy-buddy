@@ -12,8 +12,8 @@ interface WebSocketOptions {
 }
 
 const API_BASE_URL = Platform.select({
-  ios: 'http://localhost:8088',
-  android: 'http://devse.gonetis.com:12589',
+  ios: 'http://devse.kr:12589',
+  android: 'http://devse.kr:12589',
 });
 
 // 웹소켓 URL

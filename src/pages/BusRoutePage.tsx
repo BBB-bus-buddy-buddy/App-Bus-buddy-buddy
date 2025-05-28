@@ -11,7 +11,7 @@ import {useRoute, RouteProp, useNavigation} from '@react-navigation/native';
 import {SafeAreaView} from 'react-native-safe-area-context';
 import useSelectedStationStore from '../store/useSelectedStationStore';
 import theme from '../theme';
-import {busService} from '../api/services/busService';
+import {busService, BusRealTimeStatus} from '../api/services/busService';
 import {LoadingContainer} from './LoadingPage';
 
 // 네비게이션 타입 정의
@@ -38,6 +38,7 @@ interface Station {
 const BusRoutePage: React.FC = () => {
   const route = useRoute<RouteProp<RootStackParamList, 'BusRoute'>>();
   const [stationList, setStationList] = useState<Station[]>([]);
+  const [busInfo, setBusInfo] = useState<BusRealTimeStatus | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [estimatedTime, setEstimatedTime] = useState<string | null>(null);
@@ -46,14 +47,39 @@ const BusRoutePage: React.FC = () => {
 
   const busNumber = route.params.busNumber;
 
+  // 좌석 사용률 계산
+  const calculateOccupancyRate = (occupied: number, total: number) => {
+    return total > 0 ? (occupied / total) * 100 : 0;
+  };
+
+  // 좌석 사용률에 따른 색상 반환
+  const getOccupancyColor = (rate: number) => {
+    if (rate >= 90) return theme.colors.system.error;
+    if (rate >= 70) return theme.colors.system.warning;
+    return theme.colors.system.success;
+  };
+
+  // 좌석 상태 텍스트 반환
+  const getSeatStatusText = (rate: number) => {
+    if (rate >= 90) return '혼잡';
+    if (rate >= 70) return '보통';
+    return '여유';
+  };
+
   // 버스 정류장 정보 가져오기
   const fetchBusStations = useCallback(async () => {
     try {
       setLoading(true);
 
-      // 새로운 최적화된 API로 한 번에 모든 정보 가져오기
+      // 1. 정류장 상세 정보 가져오기
       const stationsDetail = await busService.getBusStationsDetail(busNumber);
       console.log('Fetched stations:', stationsDetail);
+
+      // 2. 버스 실시간 정보 가져오기 (좌석 정보 포함)
+      const allBuses = await busService.getAllBuses();
+      const currentBus = allBuses.find(bus => bus.busNumber === busNumber);
+      setBusInfo(currentBus || null);
+      console.log('Fetched bus info:', currentBus);
 
       // 정류장 목록 정렬 (sequence 기준)
       const sortedStations = [...stationsDetail].sort(
@@ -185,6 +211,42 @@ const BusRoutePage: React.FC = () => {
     [stationList.length, handleStationClick],
   );
 
+  // 좌석 정보 헤더 렌더링
+  const renderSeatInfo = () => {
+    if (!busInfo) return null;
+
+    const occupancyRate = calculateOccupancyRate(busInfo.occupiedSeats, busInfo.totalSeats);
+    const occupancyColor = getOccupancyColor(occupancyRate);
+    const seatStatusText = getSeatStatusText(occupancyRate);
+
+    return (
+      <View style={styles.seatInfoContainer}>
+        <View style={styles.seatProgressContainer}>
+          <View style={styles.seatProgressBackground}>
+            <View 
+              style={[
+                styles.seatProgressBar,
+                {
+                  width: `${occupancyRate}%`,
+                  backgroundColor: occupancyColor,
+                }
+              ]} 
+            />
+          </View>
+          <View style={styles.seatTextContainer}>
+            <Text style={styles.seatStatusText}>
+              좌석 상황: <Text style={[styles.seatStatus, {color: occupancyColor}]}>{seatStatusText}</Text>
+            </Text>
+            <Text style={styles.seatDetailText}>
+              {busInfo.totalSeats - busInfo.occupiedSeats}석 여유 ({busInfo.occupiedSeats}/{busInfo.totalSeats})
+            </Text>
+          </View>
+        </View>
+        <View style={[styles.seatIndicator, {backgroundColor: occupancyColor}]} />
+      </View>
+    );
+  };
+
   // 로딩 및 에러 상태 처리
   if (loading) {
     return (
@@ -213,6 +275,9 @@ const BusRoutePage: React.FC = () => {
             </Text>
           )}
         </Text>
+        
+        {/* 좌석 정보 표시 */}
+        {renderSeatInfo()}
       </View>
 
       <FlatList
@@ -243,10 +308,12 @@ const styles = StyleSheet.create({
     paddingVertical: theme.spacing.sm,
     borderBottomWidth: 1,
     borderBottomColor: theme.colors.gray[200],
+    backgroundColor: theme.colors.white,
   },
   headerText: {
     fontSize: theme.typography.text.lg.fontSize,
     color: theme.colors.gray[800],
+    marginBottom: theme.spacing.sm,
   },
   busNumber: {
     fontWeight: theme.typography.fontWeight.bold as TextStyle['fontWeight'],
@@ -256,6 +323,53 @@ const styles = StyleSheet.create({
     fontSize: theme.typography.text.md.fontSize,
     color: theme.colors.gray[600],
   },
+  
+  // 좌석 정보 스타일
+  seatInfoContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: theme.colors.gray[50],
+    borderRadius: theme.borderRadius.md,
+    padding: theme.spacing.sm,
+    marginTop: theme.spacing.sm,
+  },
+  seatProgressContainer: {
+    flex: 1,
+  },
+  seatProgressBackground: {
+    height: 6,
+    backgroundColor: theme.colors.gray[200],
+    borderRadius: theme.borderRadius.xs,
+    marginBottom: theme.spacing.xs,
+  },
+  seatProgressBar: {
+    height: '100%',
+    borderRadius: theme.borderRadius.xs,
+  },
+  seatTextContainer: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  seatStatusText: {
+    ...theme.typography.text.sm,
+    color: theme.colors.gray[700],
+    fontWeight: theme.typography.fontWeight.medium as TextStyle['fontWeight'],
+  },
+  seatStatus: {
+    fontWeight: theme.typography.fontWeight.semiBold as TextStyle['fontWeight'],
+  },
+  seatDetailText: {
+    ...theme.typography.text.xs,
+    color: theme.colors.gray[600],
+  },
+  seatIndicator: {
+    width: 12,
+    height: 12,
+    borderRadius: 6,
+    marginLeft: theme.spacing.sm,
+  },
+  
   stationList: {
     flex: 1,
   },

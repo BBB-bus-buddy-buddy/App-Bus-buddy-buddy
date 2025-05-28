@@ -59,7 +59,9 @@ interface EnhancedBusInfo extends BusRealTimeStatus {
 
 const BusListPage: React.FC = () => {
   const [, setRouteInfo] = useState<Route | null>(null);
-  const [stationsWithBuses, setStationsWithBuses] = useState<StationWithBuses[]>([]);
+  const [stationsWithBuses, setStationsWithBuses] = useState<
+    StationWithBuses[]
+  >([]);
   const [activeBuses, setActiveBuses] = useState<EnhancedBusInfo[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -75,97 +77,144 @@ const BusListPage: React.FC = () => {
   const fetchRouteData = useCallback(async () => {
     try {
       setLoading(!refreshing);
-      
+
       // 1. 노선 정보 가져오기 (정류장 목록 포함)
       const routeData = await routeService.getRouteById(routeId);
       setRouteInfo(routeData);
 
-      // 2. 해당 노선을 운행하는 버스들 가져오기
+      // 2. 모든 정류장 정보 가져오기 (location 포함)
+      const allStations = await stationService.getAllStations();
+
+      // 3. 해당 노선을 운행하는 버스들 가져오기
       const allBuses = await busService.getAllBuses();
       const routeBuses = allBuses.filter(bus => bus.routeName === routeName);
-      
+
       // 각 버스의 다음 정류장 도착 예정 시간 추가
       const busesWithNextArrival = await Promise.all(
-        routeBuses.map(async (bus) => {
+        routeBuses.map(async bus => {
           try {
-            const busStations = await busService.getBusStationsDetail(bus.busNumber);
-            const currentStationIndex = busStations.findIndex(station => station.isCurrentStation);
-            const nextStation = currentStationIndex >= 0 && currentStationIndex < busStations.length - 1 
-              ? busStations[currentStationIndex + 1] 
-              : null;
-            
+            const busStations = await busService.getBusStationsDetail(
+              bus.busNumber,
+            );
+            const currentStationIndex = busStations.findIndex(
+              station => station.isCurrentStation,
+            );
+            const nextStation =
+              currentStationIndex >= 0 &&
+              currentStationIndex < busStations.length - 1
+                ? busStations[currentStationIndex + 1]
+                : null;
+
             return {
               ...bus,
               nextStationName: nextStation?.name || null,
               nextStationArrivalTime: nextStation?.estimatedArrivalTime || null,
-              currentStationName: bus.currentStationName || busStations.find(s => s.isCurrentStation)?.name || '위치 확인 중',
+              // 현재 위치는 다음에 향하고 있는 정류장으로 표시
+              currentStationName: busStations.find(s => s.isCurrentStation)?.name || '이동 중',
             };
           } catch (error) {
-            console.error(`Error fetching next station for bus ${bus.busNumber}:`, error);
+            console.error(
+              `Error fetching next station for bus ${bus.busNumber}:`,
+              error,
+            );
             return {
               ...bus,
               nextStationName: null,
               nextStationArrivalTime: null,
-              currentStationName: bus.currentStationName || '위치 확인 중',
+              currentStationName: '이동 중',
             };
           }
-        })
+        }),
       );
-      
+
+      console.log('🚌 운행 중인 버스들:');
+      busesWithNextArrival.forEach(bus => {
+        console.log(`  ${bus.busNumber}: 향하는곳=${bus.currentStationName}, 그다음=${bus.nextStationName}`);
+      });
+
       setActiveBuses(busesWithNextArrival);
 
-      // 3. 각 정류장별로 버스 정보 매핑 - 새로운 데이터 구조 반영
+      // 4. 각 정류장별로 버스 정보 매핑 - location 정보 포함
       const stationsWithBusData: StationWithBuses[] = await Promise.all(
         routeData.stations
           .sort((a, b) => a.sequence - b.sequence)
-          .map(async (station) => {
+          .map(async station => {
+            console.log('🗺️ 처리 중인 station:', station);
+
+            // 해당 정류장의 전체 정보 찾기 (location 포함)
+            const fullStationInfo = allStations.find(
+              s => s.id === station.stationId,
+            );
+            console.log('🗺️ 찾은 fullStationInfo:', fullStationInfo);
+
             const busInfoForStation = await Promise.all(
-              routeBuses.map(async (bus) => {
+              routeBuses.map(async bus => {
                 try {
                   // 각 버스의 정류장 상세 정보 가져오기
-                  const busStations = await busService.getBusStationsDetail(bus.busNumber);
-                  
+                  const busStations = await busService.getBusStationsDetail(
+                    bus.busNumber,
+                  );
+
                   // 해당 정류장이 이 버스의 경로에 있는지 확인
-                  const targetStation = busStations.find(s => s.name === station.stationName);
-                  
+                  const targetStation = busStations.find(
+                    s => s.name === station.stationName,
+                  );
+
                   let estimatedTime: string | undefined = undefined;
-                  
+
                   if (targetStation) {
-                    // 이미 지나간 정류장이면 제외
+                    // 이미 지나간 정류장이면 제외 (isPassed: true)
                     if (targetStation.isPassed) {
                       return null; // 이미 지나간 정류장은 정보 제공하지 않음
                     }
-                    
+
                     // 다음에 향하고 있는 정류장 (isCurrentStation: true)
                     if (targetStation.isCurrentStation) {
                       try {
-                        const arrivalData = await stationService.getArrivalEstimate(bus.busNumber, station.stationId);
-                        
+                        const arrivalData =
+                          await stationService.getArrivalEstimate(
+                            bus.busNumber,
+                            station.stationId,
+                          );
+
                         if (arrivalData.estimatedTime === '--분 --초') {
                           estimatedTime = '--분 --초';
                         } else {
                           estimatedTime = arrivalData.estimatedTime;
                         }
                       } catch (arrivalError) {
-                        console.error(`카카오 API 호출 실패 for bus ${bus.busNumber} to station ${station.stationName}:`, arrivalError);
+                        console.error(
+                          `카카오 API 호출 실패 for bus ${bus.busNumber} to station ${station.stationName}:`,
+                          arrivalError,
+                        );
                         estimatedTime = '--분 --초';
                       }
                     }
                     // 아직 가지 않은 미래 정류장 (isCurrentStation: false && isPassed: false)
-                    else if (!targetStation.isCurrentStation && !targetStation.isPassed) {
+                    else if (
+                      !targetStation.isCurrentStation &&
+                      !targetStation.isPassed
+                    ) {
                       try {
-                        const arrivalData = await stationService.getArrivalEstimate(bus.busNumber, station.stationId);
+                        const arrivalData =
+                          await stationService.getArrivalEstimate(
+                            bus.busNumber,
+                            station.stationId,
+                          );
                         if (arrivalData.estimatedTime !== '--분 --초') {
                           estimatedTime = arrivalData.estimatedTime;
                         }
                       } catch (arrivalError) {
                         // 먼 정류장의 경우 API 실패 시 시간 없음으로 처리
-                        console.error(`카카오 API 호출 실패 for future station ${bus.busNumber} to ${station.stationName}:`, arrivalError);
+                        console.error(
+                          `카카오 API 호출 실패 for future station ${bus.busNumber} to ${station.stationName}:`,
+                          arrivalError,
+                        );
                         estimatedTime = undefined;
                       }
                     }
                   }
-                  
+
                   // 도착 예정 시간이 있는 경우만 반환
                   if (estimatedTime) {
                     return {
@@ -175,32 +224,93 @@ const BusListPage: React.FC = () => {
                       totalSeats: bus.totalSeats,
                     };
                   }
-                  
+
                   return null; // 도착 예정 시간이 없으면 null
                 } catch (error) {
-                  console.error(`Error fetching station info for bus ${bus.busNumber}:`, error);
+                  console.error(
+                    `Error fetching station info for bus ${bus.busNumber}:`,
+                    error,
+                  );
                   return null;
                 }
-              })
+              }),
             );
 
             // null 값들을 필터링하고 유효한 버스 정보만 포함
-            const validBusInfo = busInfoForStation.filter(busInfo => busInfo !== null);
+            const validBusInfo = busInfoForStation.filter(
+              busInfo => busInfo !== null,
+            );
+
+            // location 처리 개선
+            let processedLocation = undefined;
+
+            if (fullStationInfo?.location) {
+              if (
+                fullStationInfo.location.coordinates &&
+                Array.isArray(fullStationInfo.location.coordinates) &&
+                fullStationInfo.location.coordinates.length >= 2
+              ) {
+                // coordinates 배열이 있는 경우
+                processedLocation = {
+                  x: fullStationInfo.location.coordinates[0], // 경도
+                  y: fullStationInfo.location.coordinates[1], // 위도
+                  coordinates: fullStationInfo.location.coordinates,
+                  type: fullStationInfo.location.type || 'Point',
+                };
+                console.log('✅ coordinates 배열 사용:', processedLocation);
+              } else if (
+                fullStationInfo.location.x &&
+                fullStationInfo.location.y
+              ) {
+                // x, y 직접 값이 있는 경우
+                processedLocation = {
+                  x: fullStationInfo.location.x,
+                  y: fullStationInfo.location.y,
+                  coordinates: [
+                    fullStationInfo.location.x,
+                    fullStationInfo.location.y,
+                  ],
+                  type: fullStationInfo.location.type || 'Point',
+                };
+                console.log('✅ x,y 직접값 사용:', processedLocation);
+              } else {
+                console.log(
+                  '⚠️ location 형식이 예상과 다름:',
+                  fullStationInfo.location,
+                );
+              }
+            } else {
+              console.log('⚠️ fullStationInfo에 location이 없음');
+            }
+
+            console.log('🔍 최종 processedLocation:', processedLocation);
 
             return {
               id: station.stationId,
               name: station.stationName,
               sequence: station.sequence,
-              location: station.location ? {
-                x: station.location.coordinates ? station.location.coordinates[0] : station.location.x,
-                y: station.location.coordinates ? station.location.coordinates[1] : station.location.y,
-                coordinates: station.location.coordinates || [station.location.x, station.location.y],
-                type: station.location.type || 'Point',
-              } : undefined,
+              location: processedLocation, // 처리된 location 사용
               buses: validBusInfo,
             };
-          })
+          }),
       );
+
+      console.log('🔍 최종 stationsWithBusData:');
+      stationsWithBusData.forEach((station, index) => {
+        console.log(`  [${index}] ${station.name}:`);
+        console.log(`    - ID: ${station.id}`);
+        console.log(`    - location:`, station.location);
+        console.log(`    - buses: ${station.buses.length}대`);
+        station.buses.forEach(bus => {
+          console.log(`      * ${bus.busNumber}: ${bus.estimatedArrivalTime}`);
+        });
+        if (station.location) {
+          console.log(`    - coordinates:`, station.location.coordinates);
+          console.log(`    - x:`, station.location.x);
+          console.log(`    - y:`, station.location.y);
+        }
+        console.log('    ---');
+      });
 
       setStationsWithBuses(stationsWithBusData);
       setError(null);
@@ -228,8 +338,9 @@ const BusListPage: React.FC = () => {
   };
 
   // 정류장 클릭 시 상세 모달 표시
-  const [selectedStationDetail, setSelectedStationDetail] = useState<StationWithBuses | null>(null);
-  
+  const [selectedStationDetail, setSelectedStationDetail] =
+    useState<StationWithBuses | null>(null);
+
   const handleStationClick = (station: StationWithBuses) => {
     setSelectedStationDetail(station);
   };
@@ -239,45 +350,78 @@ const BusListPage: React.FC = () => {
   };
 
   const handleGoToMap = (station: StationWithBuses) => {
-    // location 정보 처리 개선
-    const convertedStation = {
-      id: station.id,
-      name: station.name,
-      // location이 undefined면 아예 포함하지 않음
-      ...(station.location && station.location.coordinates ? {
-        location: {
-          x: station.location.coordinates[0], // 경도
-          y: station.location.coordinates[1], // 위도
-        }
-      } : {})
-    };
-
     console.log('🚌 BusListPage - handleGoToMap 호출됨');
-    console.log('🚌 설정할 station:', convertedStation);
-    console.log('🚌 location 체크:', station.location);
-    
-    setSelectedStation(convertedStation);
-    
-    // Store에 저장되었는지 확인을 위한 setTimeout
-    setTimeout(() => {
-      const currentState = useSelectedStationStore.getState().selectedStation;
-      console.log('🚌 Store 확인 - 설정 후 selectedStation:', currentState);
-      if (!currentState) {
-        console.error('❌ Store에 저장 실패! location 문제일 수 있음');
-        // location 없이 다시 시도
-        const simpleStation = {
-          id: station.id,
-          name: station.name,
-        };
-        console.log('🚌 location 없이 재시도:', simpleStation);
-        setSelectedStation(simpleStation);
+    console.log('🚌 원본 station 데이터:', station);
+    console.log('🚌 location 상세:', station.location);
+
+    try {
+      // 필수 정보 확인
+      if (!station.id || !station.name) {
+        console.error('❌ 필수 정보 누락:', { id: station.id, name: station.name });
+        showToast('정류장 정보가 올바르지 않습니다.', 'error');
+        return;
       }
-    }, 100);
-    
-    setSelectedStationDetail(null);
-    
-    console.log('🚌 Home으로 네비게이션 시작');
-    navigation.navigate('Home' as never);
+
+      // 기본 station 정보 (필수 필드만)
+      const baseStation: {
+        id: string;
+        name: string;
+        location?: { x: number; y: number };
+      } = {
+        id: station.id,
+        name: station.name,
+      };
+
+      // location이 있는 경우에만 추가
+      if (station.location) {
+        if (station.location.coordinates && Array.isArray(station.location.coordinates) && station.location.coordinates.length >= 2) {
+          baseStation.location = {
+            x: Number(station.location.coordinates[0]), // 경도
+            y: Number(station.location.coordinates[1]), // 위도
+          };
+          console.log('✅ location 있음 - coordinates 사용');
+        } else if (typeof station.location.x === 'number' && typeof station.location.y === 'number') {
+          baseStation.location = {
+            x: station.location.x,
+            y: station.location.y,
+          };
+          console.log('✅ location 있음 - x,y 직접 사용');
+        } else {
+          console.log('⚠️ location 형식이 예상과 다름, 기본 정보만 사용');
+        }
+      } else {
+        console.log('⚠️ location 없음 - 기본 정보만 저장');
+      }
+
+      console.log('🚌 최종 변환된 station:', baseStation);
+      
+      // Store에 저장
+      setSelectedStation(baseStation);
+      
+      // 저장 확인 (동기적으로)
+      setTimeout(() => {
+        const currentState = useSelectedStationStore.getState().selectedStation;
+        console.log('🚌 Store 확인 - 저장 후 selectedStation:', currentState);
+        
+        if (currentState && currentState.id === baseStation.id) {
+          console.log('✅ Store 저장 성공 확인됨');
+          
+          // 모달 닫기
+          setSelectedStationDetail(null);
+          
+          // 네비게이션
+          console.log('🚌 Home으로 네비게이션 시작');
+          navigation.navigate('Home' as never);
+        } else {
+          console.error('❌ Store 저장 실패');
+          showToast('정류장 선택에 실패했습니다.', 'error');
+        }
+      }, 100);
+      
+    } catch (error) {
+      console.error('❌ handleGoToMap 에러:', error);
+      showToast('예상치 못한 오류가 발생했습니다.', 'error');
+    }
   };
 
   // 버스별 좌석 사용률 계산
@@ -301,35 +445,106 @@ const BusListPage: React.FC = () => {
 
   // 전체 운행 상황 요약 (정류장 목록 위에 표시)
   const renderOverallSituation = () => {
+    console.log('🔍 renderOverallSituation 호출됨');
+    console.log('🔍 stationsWithBuses 길이:', stationsWithBuses.length);
+    
     // 도착 예정인 버스들 수집 ("해당 정류장으로 가고있어요")
     const allIncomingBuses: {stationName: string; buses: any[]}[] = [];
-    
+
     stationsWithBuses.forEach(station => {
-      const incomingBuses = station.buses.filter(bus => 
-        bus.estimatedArrivalTime && bus.estimatedArrivalTime !== '--분 --초' && extractMinutes(bus.estimatedArrivalTime) <= 30
+      console.log(`🔍 정류장 ${station.name} 체크 중...`);
+      console.log(`🔍 정류장 ${station.name}의 버스들:`, station.buses);
+      
+      const incomingBuses = station.buses.filter(
+        bus => {
+          const hasTime = bus.estimatedArrivalTime && bus.estimatedArrivalTime !== '--분 --초';
+          const withinTime = hasTime && extractMinutes(bus.estimatedArrivalTime) <= 30;
+          
+          console.log(`  버스 ${bus.busNumber}: 시간=${bus.estimatedArrivalTime}, 30분내=${withinTime}`);
+          
+          return hasTime && withinTime;
+        }
       );
+
+      console.log(`🔍 정류장 ${station.name}의 도착예정 버스: ${incomingBuses.length}대`);
 
       if (incomingBuses.length > 0) {
         allIncomingBuses.push({
           stationName: station.name,
-          buses: incomingBuses.sort((a, b) => extractMinutes(a.estimatedArrivalTime) - extractMinutes(b.estimatedArrivalTime))
+          buses: incomingBuses.sort(
+            (a, b) =>
+              extractMinutes(a.estimatedArrivalTime) -
+              extractMinutes(b.estimatedArrivalTime),
+          ),
         });
       }
     });
 
+    console.log('🔍 총 도착예정 정류장 수:', allIncomingBuses.length);
+
     if (allIncomingBuses.length === 0) {
+      console.log('🔍 도착예정 버스 없음 - 현재 운행중 버스 표시');
+      
+      // 도착 예정 버스가 없어도 현재 운행중인 버스 정보는 표시
+      if (activeBuses.length > 0) {
+        return (
+          <View style={styles.overallSituationContainer}>
+            <Text style={styles.overallSituationTitle}>
+              🚌 현재 운행 중인 버스
+            </Text>
+            
+            {activeBuses.map((bus, index) => (
+              <View key={index} style={styles.situationStationGroup}>
+                <Text style={styles.situationStationName}>
+                  {bus.busNumber} - {bus.currentStationName}으로 이동 중
+                </Text>
+                <View style={styles.situationBusList}>
+                  <View style={styles.situationBusItem}>
+                    <Text style={styles.situationBusNumber}>
+                      그 다음: {bus.nextStationName || '종점'}
+                    </Text>
+                    <View style={styles.situationArrivalInfo}>
+                      {bus.nextStationArrivalTime && (
+                        <Text style={styles.situationArrivalTime}>
+                          약 {extractMinutes(bus.nextStationArrivalTime)}분 후
+                        </Text>
+                      )}
+                      <View style={styles.situationSeatInfo}>
+                        <View style={[
+                          styles.situationSeatIndicator,
+                          {backgroundColor: getOccupancyColor(calculateOccupancyRate(bus.occupiedSeats, bus.totalSeats))}
+                        ]} />
+                        <Text style={styles.situationSeatText}>
+                          {bus.totalSeats - bus.occupiedSeats}석
+                        </Text>
+                      </View>
+                    </View>
+                  </View>
+                </View>
+              </View>
+            ))}
+          </View>
+        );
+      }
+      
       return null;
     }
 
+    console.log('🔍 도착예정 정보 렌더링');
+
     return (
       <View style={styles.overallSituationContainer}>
-        <Text style={styles.overallSituationTitle}>🚌 해당 정류장으로 가고있어요</Text>
-        
+        <Text style={styles.overallSituationTitle}>
+          🚌 해당 정류장으로 가고있어요
+        </Text>
+
         {allIncomingBuses.map((stationData, index) => (
           <View key={index} style={styles.situationStationGroup}>
-            <Text style={styles.situationStationName}>{stationData.stationName}</Text>
+            <Text style={styles.situationStationName}>
+              {stationData.stationName}
+            </Text>
             <View style={styles.situationBusList}>
-              {stationData.buses.map((bus) => (
+              {stationData.buses.map(bus => (
                 <View key={bus.busNumber} style={styles.situationBusItem}>
                   <Text style={styles.situationBusNumber}>{bus.busNumber}</Text>
                   <View style={styles.situationArrivalInfo}>
@@ -337,10 +552,19 @@ const BusListPage: React.FC = () => {
                       약 {extractMinutes(bus.estimatedArrivalTime)}분 후
                     </Text>
                     <View style={styles.situationSeatInfo}>
-                      <View style={[
-                        styles.situationSeatIndicator,
-                        {backgroundColor: getOccupancyColor(calculateOccupancyRate(bus.occupiedSeats, bus.totalSeats))}
-                      ]} />
+                      <View
+                        style={[
+                          styles.situationSeatIndicator,
+                          {
+                            backgroundColor: getOccupancyColor(
+                              calculateOccupancyRate(
+                                bus.occupiedSeats,
+                                bus.totalSeats,
+                              ),
+                            ),
+                          },
+                        ]}
+                      />
                       <Text style={styles.situationSeatText}>
                         {bus.totalSeats - bus.occupiedSeats}석
                       </Text>
@@ -359,27 +583,46 @@ const BusListPage: React.FC = () => {
   const renderBusSummary = () => (
     <View style={styles.summaryContainer}>
       <Text style={styles.summaryTitle}>운행 현황</Text>
-      <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.busCardsContainer}>
-        {activeBuses.map((bus) => (
+      <ScrollView
+        horizontal
+        showsHorizontalScrollIndicator={false}
+        style={styles.busCardsContainer}>
+        {activeBuses.map(bus => (
           <View key={bus.busNumber} style={styles.busCard}>
             <View style={styles.busCardHeader}>
-              <Ionicons name="bus" size={20} color={theme.colors.primary.default} />
+              <Ionicons
+                name="bus"
+                size={20}
+                color={theme.colors.primary.default}
+              />
               <Text style={styles.busCardNumber}>{bus.busNumber}</Text>
             </View>
             <Text style={styles.busCardLocation}>
-              {bus.currentStationName}
+              {bus.currentStationName}으로 이동 중
               {bus.nextStationName && bus.nextStationArrivalTime && (
                 <Text style={styles.nextArrivalText}>
-                  {'\n'}→ {bus.nextStationName} ({extractMinutes(bus.nextStationArrivalTime)}분 후)
+                  {'\n'}그 다음: {bus.nextStationName} (
+                  {extractMinutes(bus.nextStationArrivalTime)}분 후)
                 </Text>
               )}
             </Text>
             <View style={styles.busCardSeats}>
-              <View style={[
-                styles.progressBar,
-                {width: `${calculateOccupancyRate(bus.occupiedSeats, bus.totalSeats)}%`},
-                {backgroundColor: getOccupancyColor(calculateOccupancyRate(bus.occupiedSeats, bus.totalSeats))}
-              ]} />
+              <View
+                style={[
+                  styles.progressBar,
+                  {
+                    width: `${calculateOccupancyRate(
+                      bus.occupiedSeats,
+                      bus.totalSeats,
+                    )}%`,
+                  },
+                  {
+                    backgroundColor: getOccupancyColor(
+                      calculateOccupancyRate(bus.occupiedSeats, bus.totalSeats),
+                    ),
+                  },
+                ]}
+              />
               <Text style={styles.busCardSeatsText}>
                 {bus.totalSeats - bus.occupiedSeats}석 여유
               </Text>
@@ -394,8 +637,11 @@ const BusListPage: React.FC = () => {
   const renderStationDetailModal = () => {
     if (!selectedStationDetail) return null;
 
-    const upcomingBuses = selectedStationDetail.buses.filter(bus => 
-      bus.estimatedArrivalTime && bus.estimatedArrivalTime !== '--분 --초' && extractMinutes(bus.estimatedArrivalTime) <= 60
+    const upcomingBuses = selectedStationDetail.buses.filter(
+      bus =>
+        bus.estimatedArrivalTime &&
+        bus.estimatedArrivalTime !== '--분 --초' &&
+        extractMinutes(bus.estimatedArrivalTime) <= 60,
     );
 
     return (
@@ -403,44 +649,69 @@ const BusListPage: React.FC = () => {
         visible={!!selectedStationDetail}
         animationType="slide"
         transparent={true}
-        onRequestClose={handleStationDetailClose}
-      >
+        onRequestClose={handleStationDetailClose}>
         <View style={styles.modalOverlay}>
           <View style={styles.modalContent}>
             {/* 모달 헤더 */}
             <View style={styles.modalHeader}>
               <View>
-                <Text style={styles.modalTitle}>{selectedStationDetail.name}</Text>
-                <Text style={styles.modalSubtitle}>{selectedStationDetail.sequence}번째 정류장</Text>
+                <Text style={styles.modalTitle}>
+                  {selectedStationDetail.name}
+                </Text>
+                <Text style={styles.modalSubtitle}>
+                  {selectedStationDetail.sequence}번째 정류장
+                </Text>
               </View>
               <TouchableOpacity
                 style={styles.closeButton}
-                onPress={handleStationDetailClose}
-              >
-                <Ionicons name="close" size={24} color={theme.colors.gray[600]} />
+                onPress={handleStationDetailClose}>
+                <Ionicons
+                  name="close"
+                  size={24}
+                  color={theme.colors.gray[600]}
+                />
               </TouchableOpacity>
             </View>
 
-            <ScrollView style={styles.modalBody} showsVerticalScrollIndicator={false}>
+            <ScrollView
+              style={styles.modalBody}
+              showsVerticalScrollIndicator={false}>
               {/* 도착 예정 버스들 */}
               {upcomingBuses.length > 0 && (
                 <View style={styles.modalSection}>
-                  <Text style={styles.modalSectionTitle}>🚌 해당 정류장으로 가고있어요</Text>
+                  <Text style={styles.modalSectionTitle}>
+                    🚌 해당 정류장으로 가고있어요
+                  </Text>
                   {upcomingBuses
-                    .sort((a, b) => extractMinutes(a.estimatedArrivalTime) - extractMinutes(b.estimatedArrivalTime))
-                    .map((bus) => (
+                    .sort(
+                      (a, b) =>
+                        extractMinutes(a.estimatedArrivalTime) -
+                        extractMinutes(b.estimatedArrivalTime),
+                    )
+                    .map(bus => (
                       <View key={bus.busNumber} style={styles.modalBusItem}>
                         <View style={styles.modalBusHeader}>
-                          <Text style={styles.modalBusNumber}>{bus.busNumber}</Text>
+                          <Text style={styles.modalBusNumber}>
+                            {bus.busNumber}
+                          </Text>
                           <View style={styles.modalArrivalContainer}>
                             <Text style={styles.modalArrivalTime}>
                               약 {extractMinutes(bus.estimatedArrivalTime)}분 후
                             </Text>
                             <View style={styles.modalSeatInfo}>
-                              <View style={[
-                                styles.modalSeatIndicator,
-                                {backgroundColor: getOccupancyColor(calculateOccupancyRate(bus.occupiedSeats, bus.totalSeats))}
-                              ]} />
+                              <View
+                                style={[
+                                  styles.modalSeatIndicator,
+                                  {
+                                    backgroundColor: getOccupancyColor(
+                                      calculateOccupancyRate(
+                                        bus.occupiedSeats,
+                                        bus.totalSeats,
+                                      ),
+                                    ),
+                                  },
+                                ]}
+                              />
                               <Text style={styles.modalSeatText}>
                                 {bus.totalSeats - bus.occupiedSeats}석
                               </Text>
@@ -448,14 +719,18 @@ const BusListPage: React.FC = () => {
                           </View>
                         </View>
                       </View>
-                  ))}
+                    ))}
                 </View>
               )}
 
               {/* 버스가 없는 경우 */}
               {upcomingBuses.length === 0 && (
                 <View style={styles.modalEmptyState}>
-                  <Ionicons name="bus-outline" size={48} color={theme.colors.gray[300]} />
+                  <Ionicons
+                    name="bus-outline"
+                    size={48}
+                    color={theme.colors.gray[300]}
+                  />
                   <Text style={styles.modalEmptyText}>
                     현재 이 정류장에 도착 예정인 버스가 없습니다.
                   </Text>
@@ -467,8 +742,7 @@ const BusListPage: React.FC = () => {
             <View style={styles.modalFooter}>
               <TouchableOpacity
                 style={styles.mapButton}
-                onPress={() => handleGoToMap(selectedStationDetail)}
-              >
+                onPress={() => handleGoToMap(selectedStationDetail)}>
                 <Ionicons name="map" size={20} color={theme.colors.white} />
                 <Text style={styles.mapButtonText}>지도에서 보기</Text>
               </TouchableOpacity>
@@ -481,49 +755,90 @@ const BusListPage: React.FC = () => {
 
   // 정류장 아이템 렌더링
   const renderStationItem = ({item}: {item: StationWithBuses}) => {
-    const incomingBuses = item.buses.filter(bus => 
-      bus.estimatedArrivalTime && bus.estimatedArrivalTime !== '--분 --초' && extractMinutes(bus.estimatedArrivalTime) <= 30
+    // 도착 예정 버스들만 체크 (30분 이내)
+    const incomingBuses = item.buses.filter(
+      bus =>
+        bus.estimatedArrivalTime &&
+        bus.estimatedArrivalTime !== '--분 --초' &&
+        extractMinutes(bus.estimatedArrivalTime) <= 30,
     );
+
+    // 이 정류장으로 향하고 있는 버스들 찾기
+    const movingToBuses = activeBuses.filter(bus => 
+      bus.currentStationName === item.name
+    );
+
+    console.log(`🔍 정류장 ${item.name}: incomingBuses=${incomingBuses.length}대, movingToBuses=${movingToBuses.length}대`);
 
     return (
       <TouchableOpacity
         style={styles.stationItem}
         onPress={() => handleStationClick(item)}
         activeOpacity={0.7}>
-        
         {/* 정류장 정보 */}
         <View style={styles.stationHeader}>
           <View style={styles.stationLineContainer}>
+            {/* 수직 라인 */}
             <View
               style={[
                 styles.verticalLine,
                 item.sequence === 0 && styles.firstLine,
-                item.sequence === stationsWithBuses.length - 1 && styles.lastLine,
+                item.sequence === stationsWithBuses.length && styles.lastLine,
               ]}
             />
-            <View style={[
-              styles.stationDot,
-              incomingBuses.length > 0 && styles.activeDot,
-            ]} />
+            
+            {/* 이 정류장으로 향하는 버스가 있다면 작은 점 표시 (정류장 도트 위쪽) */}
+            {movingToBuses.length > 0 && item.sequence > 0 && (
+              <View style={styles.movingBusContainer}>
+                <View style={styles.movingBusDot} />
+                {movingToBuses.length > 1 && (
+                  <Text style={styles.movingBusCount}>{movingToBuses.length}</Text>
+                )}
+              </View>
+            )}
+            
+            {/* 정류장 도트 */}
+            <View
+              style={[
+                styles.stationDot,
+                incomingBuses.length > 0 && styles.activeDot,
+              ]}
+            />
           </View>
-          
+
           <View style={styles.stationInfo}>
-            <Text style={[
-              styles.stationName,
-              incomingBuses.length > 0 && styles.activeStationName,
-            ]}>
+            <Text
+              style={[
+                styles.stationName,
+                incomingBuses.length > 0 && styles.activeStationName,
+              ]}>
               {item.name}
             </Text>
             <Text style={styles.stationSequence}>
               {item.sequence}번째 정류장
             </Text>
+            
+            {/* 이동 중인 버스 정보 */}
+            {movingToBuses.length > 0 && (
+              <Text style={styles.movingBusStatus}>
+                🚌 {movingToBuses.map(bus => bus.busNumber).join(', ')}번 버스가 이동 중
+              </Text>
+            )}
+            
+            {/* 도착 예정 버스 정보 */}
             {incomingBuses.length > 0 && (
               <Text style={styles.stationStatus}>
-                🚌 {incomingBuses.length}대 도착 예정 ({Math.min(...incomingBuses.map(bus => extractMinutes(bus.estimatedArrivalTime)))}분 후)
+                📍 {incomingBuses.length}대 도착 예정 (
+                {Math.min(
+                  ...incomingBuses.map(bus =>
+                    extractMinutes(bus.estimatedArrivalTime),
+                  ),
+                )}
+                분 후)
               </Text>
             )}
           </View>
-          
+
           <Ionicons
             name="chevron-forward"
             size={16}
@@ -561,9 +876,7 @@ const BusListPage: React.FC = () => {
           color={theme.colors.system.error}
         />
         <Text style={styles.errorText}>{error}</Text>
-        <TouchableOpacity
-          style={styles.retryButton}
-          onPress={fetchRouteData}>
+        <TouchableOpacity style={styles.retryButton} onPress={fetchRouteData}>
           <Text style={styles.retryText}>다시 시도</Text>
         </TouchableOpacity>
       </View>
@@ -579,16 +892,17 @@ const BusListPage: React.FC = () => {
             <View style={styles.header}>
               <Text style={styles.headerText}>{routeName}</Text>
               <Text style={styles.subHeaderText}>
-                {stationsWithBuses.length}개 정류장 • {activeBuses.length}대 운행
+                {stationsWithBuses.length}개 정류장 • {activeBuses.length}대
+                운행
               </Text>
             </View>
-            
+
             {/* 버스 요약 정보 */}
             {activeBuses.length > 0 && renderBusSummary()}
-            
+
             {/* 전체 운행 상황 */}
             {renderOverallSituation()}
-            
+
             {/* 정류장 목록 제목 */}
             <View style={styles.stationListHeader}>
               <Text style={styles.stationListTitle}>정류장별 실시간 정보</Text>
@@ -610,10 +924,10 @@ const BusListPage: React.FC = () => {
           />
         }
       />
-      
+
       {/* 정류장 상세 모달 */}
       {renderStationDetailModal()}
-      
+
       <Footer />
     </SafeAreaView>
   );
@@ -709,7 +1023,7 @@ const styles = StyleSheet.create({
     ...theme.typography.text.xs,
     color: theme.colors.gray[600],
   },
-  
+
   // 전체 운행 상황 스타일
   overallSituationContainer: {
     marginHorizontal: theme.spacing.lg,
@@ -774,7 +1088,7 @@ const styles = StyleSheet.create({
     ...theme.typography.text.xs,
     color: theme.colors.gray[600],
   },
-  
+
   stationListHeader: {
     marginHorizontal: theme.spacing.lg,
     marginBottom: theme.spacing.sm,
@@ -821,6 +1135,33 @@ const styles = StyleSheet.create({
   lastLine: {
     bottom: '50%',
   },
+  
+  // 이동 중인 버스 표시 (정류장 도트 위쪽 구간)
+  movingBusContainer: {
+    position: 'absolute',
+    top: 8, // 정류장 도트 위쪽
+    left: '50%',
+    marginLeft: -4,
+    alignItems: 'center',
+    zIndex: 2,
+  },
+  movingBusDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: theme.colors.system.warning,
+    borderWidth: 1,
+    borderColor: theme.colors.white,
+    ...theme.shadows.sm,
+  },
+  movingBusCount: {
+    ...theme.typography.text.xs,
+    color: theme.colors.system.warning,
+    fontWeight: theme.typography.fontWeight.bold as TextStyle['fontWeight'],
+    fontSize: 8,
+    marginTop: 1,
+  },
+  
   stationDot: {
     width: 12,
     height: 12,
@@ -837,6 +1178,7 @@ const styles = StyleSheet.create({
     height: 16,
     borderRadius: 8,
     marginTop: 17,
+    ...theme.shadows.sm,
   },
   stationInfo: {
     flex: 1,
@@ -857,6 +1199,12 @@ const styles = StyleSheet.create({
   stationStatus: {
     ...theme.typography.text.xs,
     color: theme.colors.primary.default,
+    marginTop: 2,
+    fontWeight: theme.typography.fontWeight.medium as TextStyle['fontWeight'],
+  },
+  movingBusStatus: {
+    ...theme.typography.text.xs,
+    color: theme.colors.system.warning,
     marginTop: 2,
     fontWeight: theme.typography.fontWeight.medium as TextStyle['fontWeight'],
   },
@@ -889,7 +1237,7 @@ const styles = StyleSheet.create({
     color: theme.colors.white,
     fontWeight: theme.typography.fontWeight.medium as TextStyle['fontWeight'],
   },
-  
+
   // 모달 스타일
   modalOverlay: {
     flex: 1,

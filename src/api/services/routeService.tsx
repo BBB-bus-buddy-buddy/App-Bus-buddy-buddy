@@ -1,6 +1,7 @@
 import apiClient from '../apiClient';
 
 export interface RouteStation {
+  location: any;
   sequence: number;
   stationId: string;
   stationName: string;

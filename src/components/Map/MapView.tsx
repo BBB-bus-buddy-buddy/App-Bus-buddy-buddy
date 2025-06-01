@@ -25,6 +25,7 @@ const DEFAULT_CAMERA: Camera = {
 
 interface BusPosition {
   busNumber: string;
+  busRealNumber: string | null; // 실제 버스 번호 추가
   location: {
     coordinates: [number, number];
   };
@@ -59,6 +60,14 @@ const MapView: React.FC<MapViewProps> = ({stations}) => {
   // 선택된 정류장 전역 상태 관리
   const {selectedStation, setSelectedStation} = useSelectedStationStore();
   const {showToast} = useToast();
+
+  // 버스 표시명 생성 함수
+  const getBusDisplayName = (busRealNumber: string | null, busNumber: string) => {
+    if (busRealNumber) {
+      return busRealNumber;
+    }
+    return `${busNumber} (가상번호)`;
+  };
 
   // 위치 권한 요청
   const requestLocationPermission = useCallback(async () => {
@@ -146,16 +155,38 @@ const MapView: React.FC<MapViewProps> = ({stations}) => {
         const newBusPositions = rows
           .filter(Boolean)
           .map((row: string) => {
-            const [busNumber, lng, lat] = row.split(',');
-            return {
-              busNumber: busNumber.trim(),
-              location: {
-                coordinates: [parseFloat(lat), parseFloat(lng)],
-              },
-            };
+            // 웹소켓 데이터 형식이 "busNumber,busRealNumber,lng,lat" 또는 "busNumber,lng,lat"일 수 있음
+            const parts = row.split(',');
+            
+            if (parts.length >= 3) {
+              // 새로운 형식: busNumber,busRealNumber,lng,lat
+              if (parts.length >= 4) {
+                const [busNumber, busRealNumber, lng, lat] = parts;
+                return {
+                  busNumber: busNumber.trim(),
+                  busRealNumber: busRealNumber && busRealNumber.trim() !== 'null' ? busRealNumber.trim() : null,
+                  location: {
+                    coordinates: [parseFloat(lat), parseFloat(lng)],
+                  },
+                };
+              }
+              // 기존 형식: busNumber,lng,lat
+              else {
+                const [busNumber, lng, lat] = parts;
+                return {
+                  busNumber: busNumber.trim(),
+                  busRealNumber: null,
+                  location: {
+                    coordinates: [parseFloat(lat), parseFloat(lng)],
+                  },
+                };
+              }
+            }
+            return null;
           })
           .filter(
-            (pos: {location: {coordinates: number[]}}): pos is BusPosition =>
+            (pos: any): pos is BusPosition =>
+              pos !== null &&
               !isNaN(pos.location.coordinates[0]) &&
               !isNaN(pos.location.coordinates[1]),
           );
@@ -369,7 +400,7 @@ const MapView: React.FC<MapViewProps> = ({stations}) => {
             latitude={bus.location.coordinates[0]}
             longitude={bus.location.coordinates[1]}
             caption={{
-              text: bus.busNumber,
+              text: getBusDisplayName(bus.busRealNumber, bus.busNumber),
               textSize: 13,
               color: theme.colors.gray[900],
               haloColor: theme.colors.white,

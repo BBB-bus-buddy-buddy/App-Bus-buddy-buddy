@@ -4,6 +4,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 
 export interface BusRealTimeStatus {
   busNumber: string;
+  busRealNumber: string | null; // 실제 버스 번호 추가
   routeName: string;
   organizationId: string;
   latitude: number;
@@ -15,13 +16,16 @@ export interface BusRealTimeStatus {
   lastUpdateTime: number;
   currentStationIndex: number;
   totalStations: number;
+  operate: boolean; // 운행 여부 추가
 }
 
 export interface BusSeat {
   busNumber: string;
+  busRealNumber: string | null; // 실제 버스 번호 추가
   totalSeats: number;
   availableSeats: number;
   occupiedSeats: number;
+  isOperate: boolean; // 운행 여부 추가
 }
 
 export interface BusLocation {
@@ -40,6 +44,7 @@ export interface BusBoardingAction {
 export interface BusInfo {
   id: string;
   busNumber: string;
+  busRealNumber: string | null; // 실제 버스 번호 추가
   totalSeats: number;
   occupiedSeats: number;
   availableSeats: number;
@@ -53,6 +58,7 @@ export interface BusInfo {
   prevStationIdx: number;
   prevStationId: string;
   lastStationTime: string;
+  isOperate: boolean; // 운행 여부 추가
 }
 
 export interface StationDetail {
@@ -99,11 +105,25 @@ export const busService = {
     return response.data;
   },
 
-  // 특정 버스 조회
+  // 특정 버스 조회 (busNumber로)
   async getBusByNumber(busNumber: string): Promise<BusRealTimeStatus> {
     const response = await apiClient.get<BusRealTimeStatus>(
       `/api/bus/${busNumber}`,
     );
+    return response.data;
+  },
+
+  // 실제 버스 번호로 버스 조회
+  async getBusByRealNumber(busRealNumber: string): Promise<BusRealTimeStatus> {
+    const response = await apiClient.get<BusRealTimeStatus>(
+      `/api/bus/real-number/${busRealNumber}`,
+    );
+    return response.data;
+  },
+
+  // 운행 중인 버스만 조회
+  async getOperatingBuses(): Promise<BusRealTimeStatus[]> {
+    const response = await apiClient.get<BusRealTimeStatus[]>('/api/bus/operating');
     return response.data;
   },
 
@@ -152,6 +172,7 @@ export const busService = {
       throw error;
     }
   },
+
   /**
    * 버스의 정류장 상세 정보 목록 조회 (최적화된 API)
    * @param busNumber 버스 번호
@@ -180,6 +201,7 @@ export const busService = {
       throw error;
     }
   },
+
   // 도착 시간 예측
   async getArrivalEstimate(
     busId: string,

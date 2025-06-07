@@ -43,6 +43,7 @@ const BusSchedulePage: React.FC = () => {
 
   // 시간 문자열을 분으로 변환
   const timeToMinutes = (timeString: string) => {
+    if (!timeString) return 0;
     const [hours, minutes] = timeString.split(':').map(Number);
     return hours * 60 + minutes;
   };
@@ -51,6 +52,8 @@ const BusSchedulePage: React.FC = () => {
   const fetchBusSchedules = useCallback(async () => {
     try {
       setLoading(!refreshing);
+      setError(null);
+      
       const schedules = await operationPlanService.getTodayBusSchedule();
       
       // 시작 시간 순으로 정렬
@@ -59,12 +62,15 @@ const BusSchedulePage: React.FC = () => {
       });
       
       setBusSchedules(sortedSchedules);
-      setError(null);
-    } catch (error) {
+      
+      console.log('버스 시간표 로딩 성공:', sortedSchedules.length, '개');
+    } catch (error: any) {
       console.error('버스 시간표를 가져오는 중 오류 발생:', error);
-      setError('버스 시간표를 불러오는데 실패했습니다.');
+      const errorMessage = error?.response?.data?.message || error?.message || '버스 시간표를 불러오는데 실패했습니다.';
+      setError(errorMessage);
+      
       if (!refreshing) {
-        showToast('버스 시간표를 불러오는데 실패했습니다.', 'error');
+        showToast(errorMessage, 'error');
       }
     } finally {
       setLoading(false);
@@ -75,13 +81,14 @@ const BusSchedulePage: React.FC = () => {
   // 초기 로딩
   useEffect(() => {
     fetchBusSchedules();
-  }, [fetchBusSchedules]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // 새로고침 처리
-  const handleRefresh = () => {
+  const handleRefresh = useCallback(() => {
     setRefreshing(true);
     fetchBusSchedules();
-  };
+  }, [fetchBusSchedules]);
 
   // 상태별 정보 반환
   const getScheduleStatus = (schedule: BusSchedule) => {
@@ -98,6 +105,25 @@ const BusSchedulePage: React.FC = () => {
       };
     }
 
+    if (schedule.status === 'IN_PROGRESS') {
+      return {
+        text: '운행 중',
+        color: theme.colors.system.success,
+        backgroundColor: theme.colors.system.success + '10',
+        icon: 'checkmark-circle-outline',
+      };
+    }
+
+    if (schedule.status === 'COMPLETED') {
+      return {
+        text: '운행 완료',
+        color: theme.colors.gray[600],
+        backgroundColor: theme.colors.gray[100],
+        icon: 'checkmark-done-outline',
+      };
+    }
+
+    // 시간 기반 상태 판단 (SCHEDULED인 경우)
     if (currentTime < startTime) {
       return {
         text: '운행 예정',
@@ -122,11 +148,6 @@ const BusSchedulePage: React.FC = () => {
     }
   };
 
-  // 시간 포맷팅 (HH:mm:ss -> HH:mm)
-  const formatTime = (timeString: string) => {
-    return timeString.substring(0, 5);
-  };
-
   // 버스 시간표 아이템 렌더링
   const renderScheduleItem = ({item}: {item: BusSchedule}) => {
     const statusInfo = getScheduleStatus(item);
@@ -134,7 +155,7 @@ const BusSchedulePage: React.FC = () => {
     return (
       <View style={styles.scheduleItem}>
         <View style={styles.timeSection}>
-          <Text style={styles.timeText}>{formatTime(item.startTime)}</Text>
+          <Text style={styles.timeText}>{item.startTime}</Text>
           <View style={styles.timeDivider}>
             <View style={styles.timeLine} />
             <Ionicons
@@ -144,7 +165,7 @@ const BusSchedulePage: React.FC = () => {
             />
             <View style={styles.timeLine} />
           </View>
-          <Text style={styles.timeText}>{formatTime(item.endTime)}</Text>
+          <Text style={styles.timeText}>{item.endTime}</Text>
         </View>
 
         <View style={styles.busInfoSection}>
@@ -155,7 +176,9 @@ const BusSchedulePage: React.FC = () => {
                 size={18}
                 color={theme.colors.primary.default}
               />
-              <Text style={styles.busNumber}>{item.busRealNumber}</Text>
+              <Text style={styles.busNumber}>
+                {item.busRealNumber || item.busNumber}
+              </Text>
             </View>
             <View
               style={[
@@ -179,7 +202,9 @@ const BusSchedulePage: React.FC = () => {
               size={16}
               color={theme.colors.gray[600]}
             />
-            <Text style={styles.routeName}>{item.routeName}</Text>
+            <Text style={styles.routeName} numberOfLines={1}>
+              {item.routeName}
+            </Text>
           </View>
 
           <View style={styles.driverInfo}>
@@ -188,7 +213,9 @@ const BusSchedulePage: React.FC = () => {
               size={16}
               color={theme.colors.gray[600]}
             />
-            <Text style={styles.driverName}>기사: {item.driverName}</Text>
+            <Text style={styles.driverName} numberOfLines={1}>
+              기사: {item.driverName}
+            </Text>
           </View>
         </View>
       </View>
@@ -204,10 +231,22 @@ const BusSchedulePage: React.FC = () => {
     }).length;
 
     const runningBuses = busSchedules.filter(schedule => {
+      if (schedule.status === 'IN_PROGRESS') return true;
+      
       const currentTime = getCurrentTime();
       const startTime = timeToMinutes(schedule.startTime);
       const endTime = timeToMinutes(schedule.endTime);
-      return currentTime >= startTime && currentTime <= endTime && schedule.status !== 'CANCELLED';
+      return currentTime >= startTime && currentTime <= endTime && 
+          schedule.status === 'SCHEDULED';
+    }).length;
+
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    const completedBuses = busSchedules.filter(schedule => {
+      if (schedule.status === 'COMPLETED') {return true;}
+      
+      const currentTime = getCurrentTime();
+      const endTime = timeToMinutes(schedule.endTime);
+      return currentTime > endTime && schedule.status === 'SCHEDULED';
     }).length;
 
     return (
@@ -248,20 +287,27 @@ const BusSchedulePage: React.FC = () => {
         color={theme.colors.gray[300]}
       />
       <Text style={styles.emptyText}>오늘 운행 예정인 버스가 없습니다.</Text>
+      <Text style={styles.emptySubText}>
+        운행 일정은 관리자에 의해 등록됩니다.
+      </Text>
     </View>
   );
 
   // 로딩 상태
   if (loading && !refreshing) {
     return (
-      <View style={styles.centerContainer}>
-        <ActivityIndicator size="large" color={theme.colors.primary.default} />
-      </View>
+      <SafeAreaView style={styles.container}>
+        <View style={styles.centerContainer}>
+          <ActivityIndicator size="large" color={theme.colors.primary.default} />
+          <Text style={styles.loadingText}>운행 일정을 불러오는 중...</Text>
+        </View>
+        <Footer />
+      </SafeAreaView>
     );
   }
 
   // 에러 상태
-  if (error && !refreshing) {
+  if (error && !refreshing && !loading) {
     return (
       <SafeAreaView style={styles.container}>
         <View style={styles.centerContainer}>
@@ -271,6 +317,9 @@ const BusSchedulePage: React.FC = () => {
             color={theme.colors.system.error}
           />
           <Text style={styles.errorText}>{error}</Text>
+          <Text style={styles.errorSubText}>
+            새로고침을 시도하거나 잠시 후 다시 확인해주세요.
+          </Text>
         </View>
         <Footer />
       </SafeAreaView>
@@ -285,7 +334,10 @@ const BusSchedulePage: React.FC = () => {
         renderItem={renderScheduleItem}
         keyExtractor={item => item.id}
         ListEmptyComponent={EmptyList}
-        contentContainerStyle={styles.listContent}
+        contentContainerStyle={[
+          styles.listContent,
+          busSchedules.length === 0 && styles.emptyListContent
+        ]}
         showsVerticalScrollIndicator={false}
         refreshControl={
           <RefreshControl
@@ -293,6 +345,8 @@ const BusSchedulePage: React.FC = () => {
             onRefresh={handleRefresh}
             colors={[theme.colors.primary.default]}
             tintColor={theme.colors.primary.default}
+            title="새로고침 중..."
+            titleColor={theme.colors.gray[600]}
           />
         }
       />
@@ -360,6 +414,9 @@ const styles = StyleSheet.create({
     paddingHorizontal: theme.spacing.md,
     paddingBottom: 80, // Footer 공간 확보
   },
+  emptyListContent: {
+    flexGrow: 1,
+  },
   scheduleItem: {
     backgroundColor: theme.colors.white,
     marginVertical: theme.spacing.xs,
@@ -401,6 +458,7 @@ const styles = StyleSheet.create({
   busNumberContainer: {
     flexDirection: 'row',
     alignItems: 'center',
+    flex: 1,
   },
   busNumber: {
     ...theme.typography.text.lg,
@@ -414,6 +472,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: theme.spacing.sm,
     paddingVertical: theme.spacing.xs,
     borderRadius: theme.borderRadius.sm,
+    marginLeft: theme.spacing.sm,
   },
   statusText: {
     ...theme.typography.text.xs,
@@ -429,6 +488,7 @@ const styles = StyleSheet.create({
     ...theme.typography.text.md,
     color: theme.colors.gray[700],
     marginLeft: theme.spacing.xs,
+    flex: 1,
   },
   driverInfo: {
     flexDirection: 'row',
@@ -438,8 +498,10 @@ const styles = StyleSheet.create({
     ...theme.typography.text.sm,
     color: theme.colors.gray[600],
     marginLeft: theme.spacing.xs,
+    flex: 1,
   },
   emptyContainer: {
+    flex: 1,
     padding: theme.spacing.xl,
     alignItems: 'center',
     justifyContent: 'center',
@@ -450,11 +512,28 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     marginTop: theme.spacing.md,
   },
+  emptySubText: {
+    ...theme.typography.text.sm,
+    color: theme.colors.gray[400],
+    textAlign: 'center',
+    marginTop: theme.spacing.xs,
+  },
+  loadingText: {
+    ...theme.typography.text.md,
+    color: theme.colors.gray[600],
+    marginTop: theme.spacing.md,
+  },
   errorText: {
     ...theme.typography.text.md,
     color: theme.colors.system.error,
     textAlign: 'center',
     marginVertical: theme.spacing.md,
+  },
+  errorSubText: {
+    ...theme.typography.text.sm,
+    color: theme.colors.gray[500],
+    textAlign: 'center',
+    marginTop: theme.spacing.xs,
   },
 });
 

@@ -10,7 +10,8 @@ import theme from '../theme';
 type RootStackParamList = {
   Home: undefined;
   RouteList: undefined;
-  MyPage: undefined;  // MyPage 추가
+  BusSchedule: undefined;  // 버스 시간표 탭
+  MyPage: undefined;
 };
 
 const Ionicons = _Ionicons as unknown as React.ElementType;
@@ -31,11 +32,10 @@ interface TabItem {
   label: string;
   icon: string;
   activeIcon: string;
-  requiresAdmin?: boolean;
 }
 
 const Footer: React.FC = () => {
-  const [userInfo, setUserInfo] = useState<UserInfo | null>(null);
+  const [, setUserInfo] = useState<UserInfo | null>(null);
   const navigation = useNavigation<NavigationProp>();
   const route = useRoute();
 
@@ -49,6 +49,13 @@ const Footer: React.FC = () => {
       activeIcon: 'home',
     },
     {
+      key: 'busSchedule',
+      routeName: 'BusSchedule',
+      label: '시간표',
+      icon: 'time-outline',
+      activeIcon: 'time',
+    },
+    {
       key: 'routeList',
       routeName: 'RouteList',
       label: '노선 목록',
@@ -57,8 +64,8 @@ const Footer: React.FC = () => {
     },
     {
       key: 'mypage',
-      routeName: 'MyPage',  // MyPage로 변경
-      label: '마이페이지',  // label 변경
+      routeName: 'MyPage',
+      label: '마이페이지',
       icon: 'person-outline',
       activeIcon: 'person',
     },
@@ -98,11 +105,6 @@ const Footer: React.FC = () => {
 
   // 탭 버튼 렌더링
   const renderTabButton = (tab: TabItem) => {
-    // 관리자 권한이 필요한 탭이면서 관리자가 아닌 경우 렌더링하지 않음
-    if (tab.requiresAdmin && userInfo?.role !== 'STAFF') {
-      return null;
-    }
-
     const isActive = isTabActive(tab.routeName);
     const iconName = isActive ? tab.activeIcon : tab.icon;
 

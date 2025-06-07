@@ -47,6 +47,22 @@ const BusRoutePage: React.FC = () => {
 
   const busNumber = route.params.busNumber;
 
+  // 버스 표시명 생성 함수
+  const getBusDisplayName = (busRealNumber: string | null, busNumber: string) => {
+    if (busRealNumber) {
+      return busRealNumber;
+    }
+    return `${busNumber} (가상번호)`;
+  };
+
+  // 버스 부제목 생성 함수
+  const getBusSubtitle = (busRealNumber: string | null, busNumber: string) => {
+    if (busRealNumber) {
+      return `판별 번호: ${busNumber}`;
+    }
+    return '실제 번호 미지정';
+  };
+
   // 좌석 사용률 계산
   const calculateOccupancyRate = (occupied: number, total: number) => {
     return total > 0 ? (occupied / total) * 100 : 0;
@@ -267,14 +283,22 @@ const BusRoutePage: React.FC = () => {
   return (
     <SafeAreaView style={styles.container}>
       <View style={styles.header}>
-        <Text style={styles.headerText}>
-          <Text style={styles.busNumber}>{busNumber}</Text>
-          {estimatedTime && (
-            <Text style={styles.headerRoute}>
-              {` | 약 ${extractMinutes(estimatedTime)}분 후 도착`}
-            </Text>
-          )}
-        </Text>
+        {/* 메인 타이틀 - busRealNumber 중심 */}
+        <View style={styles.headerTitleContainer}>
+          <Text style={styles.headerMainTitle}>
+            {getBusDisplayName(busInfo?.busRealNumber || null, busNumber)}
+          </Text>
+          <Text style={styles.headerSubtitle}>
+            {getBusSubtitle(busInfo?.busRealNumber || null, busNumber)}
+          </Text>
+        </View>
+        
+        {/* 도착 시간 정보 */}
+        {estimatedTime && (
+          <Text style={styles.headerArrivalTime}>
+            약 {extractMinutes(estimatedTime)}분 후 도착
+          </Text>
+        )}
         
         {/* 좌석 정보 표시 */}
         {renderSeatInfo()}
@@ -310,18 +334,24 @@ const styles = StyleSheet.create({
     borderBottomColor: theme.colors.gray[200],
     backgroundColor: theme.colors.white,
   },
-  headerText: {
-    fontSize: theme.typography.text.lg.fontSize,
-    color: theme.colors.gray[800],
+  headerTitleContainer: {
     marginBottom: theme.spacing.sm,
   },
-  busNumber: {
+  headerMainTitle: {
+    fontSize: theme.typography.text.xl.fontSize,
     fontWeight: theme.typography.fontWeight.bold as TextStyle['fontWeight'],
     color: theme.colors.gray[900],
+    marginBottom: 4,
   },
-  headerRoute: {
-    fontSize: theme.typography.text.md.fontSize,
+  headerSubtitle: {
+    fontSize: theme.typography.text.sm.fontSize,
     color: theme.colors.gray[600],
+  },
+  headerArrivalTime: {
+    fontSize: theme.typography.text.md.fontSize,
+    color: theme.colors.system.warning,
+    fontWeight: theme.typography.fontWeight.medium as TextStyle['fontWeight'],
+    marginBottom: theme.spacing.sm,
   },
   
   // 좌석 정보 스타일

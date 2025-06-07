@@ -46,6 +46,7 @@ interface StationWithBuses {
   };
   buses: {
     busNumber: string;
+    busRealNumber: string | null;
     estimatedArrivalTime?: string;
     occupiedSeats: number;
     totalSeats: number;
@@ -73,6 +74,22 @@ const BusListPage: React.FC = () => {
   const {showToast} = useToast();
   const {setSelectedStation} = useSelectedStationStore();
 
+  // 버스 표시명 생성 함수
+  const getBusDisplayName = (busRealNumber: string | null, busNumber: string) => {
+    if (busRealNumber) {
+      return busRealNumber;
+    }
+    return `${busNumber} (가상번호)`;
+  };
+
+  // 버스 부제목 생성 함수
+  const getBusSubtitle = (busRealNumber: string | null, busNumber: string) => {
+    if (busRealNumber) {
+      return `판별 번호: ${busNumber}`;
+    }
+    return '실제 번호 미지정';
+  };
+
   // 노선 정보와 버스 정보를 통합해서 가져오기
   const fetchRouteData = useCallback(async () => {
     try {
@@ -86,8 +103,22 @@ const BusListPage: React.FC = () => {
       const allStations = await stationService.getAllStations();
 
       // 3. 해당 노선을 운행하는 버스들 가져오기
-      const allBuses = await busService.getAllBuses();
+      const allBuses = await busService.getOperatingBuses(); // ← 변경점
       const routeBuses = allBuses.filter(bus => bus.routeName === routeName);
+
+      console.log(`📊 노선 ${routeName}: 전체 운행 중인 버스 ${routeBuses.length}대`);
+
+      // 운행 중지된 버스 필터링 확인
+      const operatingBuses = routeBuses.filter(bus => bus.operate);
+      const stoppedBuses = routeBuses.filter(bus => !bus.operate);
+      
+      if (stoppedBuses.length > 0) {
+        console.warn(`⚠️ 운행 중지된 버스 ${stoppedBuses.length}대가 감지되었습니다:`, 
+          stoppedBuses.map(bus => getBusDisplayName(bus.busRealNumber, bus.busNumber))
+        );
+      }
+
+      console.log(`✅ 실제 운행 중인 버스: ${operatingBuses.length}대`);
 
       // 각 버스의 다음 정류장 도착 예정 시간 추가
       const busesWithNextArrival = await Promise.all(
@@ -127,12 +158,16 @@ const BusListPage: React.FC = () => {
         }),
       );
 
-      console.log('🚌 운행 중인 버스들:');
-      busesWithNextArrival.forEach(bus => {
-        console.log(`  ${bus.busNumber}: 향하는곳=${bus.currentStationName}, 그다음=${bus.nextStationName}`);
-      });
+      // 5. 최종 확인: 운행 중인 버스만 설정
+      const finalOperatingBuses = busesWithNextArrival.filter(bus => bus.operate);
+      setActiveBuses(finalOperatingBuses);
 
-      setActiveBuses(busesWithNextArrival);
+      console.log('🚌 최종 운행 중인 버스들:');
+      finalOperatingBuses.forEach(bus => {
+        console.log(`  ✅ ${getBusDisplayName(bus.busRealNumber, bus.busNumber)}: 
+          향하는곳=${bus.currentStationName}, 그다음=${bus.nextStationName}, 
+          운행상태=${bus.operate ? '운행중' : '중지'}`);
+      });
 
       // 4. 각 정류장별로 버스 정보 매핑 - location 정보 포함
       const stationsWithBusData: StationWithBuses[] = await Promise.all(
@@ -148,8 +183,15 @@ const BusListPage: React.FC = () => {
             console.log('🗺️ 찾은 fullStationInfo:', fullStationInfo);
 
             const busInfoForStation = await Promise.all(
-              routeBuses.map(async bus => {
+              finalOperatingBuses.map(async bus => {
                 try {
+
+                  // 운행 중지된 버스는 제외
+                  if (!bus.operate) {
+                    console.log(`⏹️ 버스 ${getBusDisplayName(bus.busRealNumber, bus.busNumber)} 운행 중지로 제외`);
+                    return null;
+                  }
+
                   // 각 버스의 정류장 상세 정보 가져오기
                   const busStations = await busService.getBusStationsDetail(
                     bus.busNumber,
@@ -219,6 +261,7 @@ const BusListPage: React.FC = () => {
                   if (estimatedTime) {
                     return {
                       busNumber: bus.busNumber,
+                      busRealNumber: bus.busRealNumber,
                       estimatedArrivalTime: estimatedTime,
                       occupiedSeats: bus.occupiedSeats,
                       totalSeats: bus.totalSeats,
@@ -302,7 +345,7 @@ const BusListPage: React.FC = () => {
         console.log(`    - location:`, station.location);
         console.log(`    - buses: ${station.buses.length}대`);
         station.buses.forEach(bus => {
-          console.log(`      * ${bus.busNumber}: ${bus.estimatedArrivalTime}`);
+          console.log(`      * ${getBusDisplayName(bus.busRealNumber, bus.busNumber)}: ${bus.estimatedArrivalTime}`);
         });
         if (station.location) {
           console.log(`    - coordinates:`, station.location.coordinates);
@@ -460,7 +503,7 @@ const BusListPage: React.FC = () => {
           const hasTime = bus.estimatedArrivalTime && bus.estimatedArrivalTime !== '--분 --초';
           const withinTime = hasTime && extractMinutes(bus.estimatedArrivalTime) <= 30;
           
-          console.log(`  버스 ${bus.busNumber}: 시간=${bus.estimatedArrivalTime}, 30분내=${withinTime}`);
+          console.log(`  버스 ${getBusDisplayName(bus.busRealNumber, bus.busNumber)}: 시간=${bus.estimatedArrivalTime}, 30분내=${withinTime}`);
           
           return hasTime && withinTime;
         }
@@ -496,7 +539,10 @@ const BusListPage: React.FC = () => {
             {activeBuses.map((bus, index) => (
               <View key={index} style={styles.situationStationGroup}>
                 <Text style={styles.situationStationName}>
-                  {bus.busNumber} - {bus.currentStationName}으로 이동 중
+                  {getBusDisplayName(bus.busRealNumber, bus.busNumber)} - {bus.currentStationName}으로 이동 중
+                </Text>
+                <Text style={styles.situationBusSubtitle}>
+                  {getBusSubtitle(bus.busRealNumber, bus.busNumber)}
                 </Text>
                 <View style={styles.situationBusList}>
                   <View style={styles.situationBusItem}>
@@ -546,7 +592,14 @@ const BusListPage: React.FC = () => {
             <View style={styles.situationBusList}>
               {stationData.buses.map(bus => (
                 <View key={bus.busNumber} style={styles.situationBusItem}>
-                  <Text style={styles.situationBusNumber}>{bus.busNumber}</Text>
+                  <View style={styles.situationBusMainInfo}>
+                    <Text style={styles.situationBusNumber}>
+                      {getBusDisplayName(bus.busRealNumber, bus.busNumber)}
+                    </Text>
+                    <Text style={styles.situationBusSubtitle}>
+                      {getBusSubtitle(bus.busRealNumber, bus.busNumber)}
+                    </Text>
+                  </View>
                   <View style={styles.situationArrivalInfo}>
                     <Text style={styles.situationArrivalTime}>
                       약 {extractMinutes(bus.estimatedArrivalTime)}분 후
@@ -595,7 +648,14 @@ const BusListPage: React.FC = () => {
                 size={20}
                 color={theme.colors.primary.default}
               />
-              <Text style={styles.busCardNumber}>{bus.busNumber}</Text>
+              <View style={styles.busCardTitleContainer}>
+                <Text style={styles.busCardNumber}>
+                  {getBusDisplayName(bus.busRealNumber, bus.busNumber)}
+                </Text>
+                <Text style={styles.busCardSubtitle}>
+                  {getBusSubtitle(bus.busRealNumber, bus.busNumber)}
+                </Text>
+              </View>
             </View>
             <Text style={styles.busCardLocation}>
               {bus.currentStationName}으로 이동 중
@@ -691,9 +751,14 @@ const BusListPage: React.FC = () => {
                     .map(bus => (
                       <View key={bus.busNumber} style={styles.modalBusItem}>
                         <View style={styles.modalBusHeader}>
-                          <Text style={styles.modalBusNumber}>
-                            {bus.busNumber}
-                          </Text>
+                          <View style={styles.modalBusMainInfo}>
+                            <Text style={styles.modalBusNumber}>
+                              {getBusDisplayName(bus.busRealNumber, bus.busNumber)}
+                            </Text>
+                            <Text style={styles.modalBusSubtitle}>
+                              {getBusSubtitle(bus.busRealNumber, bus.busNumber)}
+                            </Text>
+                          </View>
                           <View style={styles.modalArrivalContainer}>
                             <Text style={styles.modalArrivalTime}>
                               약 {extractMinutes(bus.estimatedArrivalTime)}분 후
@@ -821,7 +886,7 @@ const BusListPage: React.FC = () => {
             {/* 이동 중인 버스 정보 */}
             {movingToBuses.length > 0 && (
               <Text style={styles.movingBusStatus}>
-                🚌 {movingToBuses.map(bus => bus.busNumber).join(', ')}번 버스가 이동 중
+                🚌 {movingToBuses.map(bus => getBusDisplayName(bus.busRealNumber, bus.busNumber)).join(', ')}번 버스가 이동 중
               </Text>
             )}
             
@@ -983,19 +1048,27 @@ const styles = StyleSheet.create({
     borderRadius: theme.borderRadius.md,
     padding: theme.spacing.sm,
     marginRight: theme.spacing.sm,
-    minWidth: 120,
+    minWidth: 150,
     ...theme.shadows.sm,
   },
   busCardHeader: {
     flexDirection: 'row',
-    alignItems: 'center',
+    alignItems: 'flex-start',
     marginBottom: theme.spacing.xs,
+  },
+  busCardTitleContainer: {
+    marginLeft: theme.spacing.xs,
+    flex: 1,
   },
   busCardNumber: {
     ...theme.typography.text.md,
     fontWeight: theme.typography.fontWeight.semiBold as TextStyle['fontWeight'],
     color: theme.colors.gray[900],
-    marginLeft: theme.spacing.xs,
+  },
+  busCardSubtitle: {
+    ...theme.typography.text.xs,
+    color: theme.colors.gray[500],
+    marginTop: 1,
   },
   busCardLocation: {
     ...theme.typography.text.sm,
@@ -1051,6 +1124,11 @@ const styles = StyleSheet.create({
     color: theme.colors.gray[700],
     marginBottom: theme.spacing.xs,
   },
+  situationBusSubtitle: {
+    ...theme.typography.text.xs,
+    color: theme.colors.gray[500],
+    marginBottom: theme.spacing.xs,
+  },
   situationBusList: {
     gap: theme.spacing.xs,
   },
@@ -1059,6 +1137,9 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
     paddingVertical: theme.spacing.xs,
+  },
+  situationBusMainInfo: {
+    flex: 1,
   },
   situationBusNumber: {
     ...theme.typography.text.sm,
@@ -1293,12 +1374,20 @@ const styles = StyleSheet.create({
   modalBusHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    alignItems: 'center',
+    alignItems: 'flex-start',
+  },
+  modalBusMainInfo: {
+    flex: 1,
   },
   modalBusNumber: {
     ...theme.typography.text.lg,
     fontWeight: theme.typography.fontWeight.semiBold as TextStyle['fontWeight'],
     color: theme.colors.primary.default,
+  },
+  modalBusSubtitle: {
+    ...theme.typography.text.xs,
+    color: theme.colors.gray[500],
+    marginTop: 2,
   },
   modalArrivalContainer: {
     alignItems: 'flex-end',

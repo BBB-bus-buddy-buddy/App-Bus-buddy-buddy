@@ -20,6 +20,7 @@ import {Alert} from 'react-native';
 import { ToastProvider } from './src/components/common/Toast';
 import RouteListPage from './src/pages/RouteListPage';
 import MyPage from './src/components/MyPage';
+import BusSchedulePage from './src/pages/BusSchedulePage';
 // 네비게이션 타입 정의
 export type RootStackParamList = {
   Login: undefined;
@@ -31,6 +32,7 @@ export type RootStackParamList = {
   BusRoute: {busNumber: string};
   RouteList: undefined;
   MyPage: undefined; // Added MyPage to the type definition
+  BusSchedule: undefined; // Added BusSchedule to the type definition
   Admin: undefined;
   AdminBusStation: undefined;
   AdminBusStationCreate: undefined;
@@ -78,6 +80,7 @@ const App = () => {
             <Stack.Screen name="RouteList" component={RouteListPage} />
             <Stack.Screen name="BusList" component={BusListPage} />
             <Stack.Screen name="MyPage" component={MyPage} />
+            <Stack.Screen name="BusSchedule" component={BusSchedulePage} />
             <Stack.Screen
               name="BusRoute"
               component={BusRoutePage}

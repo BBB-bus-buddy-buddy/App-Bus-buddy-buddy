@@ -191,8 +191,7 @@ const LoginPage: React.FC<LoginPageProps> = ({onLoginSuccess}) => {
           resizeMode="contain"
         />
 
-        <Text style={styles.title}>버스 버디버디</Text>
-
+        <Text style={styles.title}>BBB - 버스 버디버디</Text>
         {loading ? (
           <View style={styles.loadingContainer}>
             <ActivityIndicator size="large" color="#4CAF50" />

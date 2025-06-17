@@ -1,5 +1,5 @@
 import React, {useEffect, useState, useCallback, useRef} from 'react';
-import {View, StyleSheet, TouchableOpacity, Platform} from 'react-native';
+import {View, StyleSheet, TouchableOpacity, Platform, ActivityIndicator} from 'react-native';
 import Geolocation from '@react-native-community/geolocation';
 import {
   Camera,
@@ -11,10 +11,11 @@ import {request, PERMISSIONS, RESULTS} from 'react-native-permissions';
 import theme from '../../theme';
 import LoadingPage from '../../pages/LoadingPage';
 import {stationService, Station} from '../../api/services/stationService';
-import {createPassengerWebSocket} from '../../api/services/websocketService';
 import useSelectedStationStore from '../../store/useSelectedStationStore';
 import {useToast} from '../../components/common/Toast';
 import MyLocationIcon from '../../../assets/logos/myLocation.svg';
+
+import useBusStore from '../../store/useBusStore'; 
 
 // 지도 카메라 초기 위치 (기본값: 서울)
 const DEFAULT_CAMERA: Camera = {
@@ -23,32 +24,22 @@ const DEFAULT_CAMERA: Camera = {
   zoom: 15,
 };
 
-interface BusPosition {
-  busNumber: string;
-  busRealNumber: string | null; // 실제 버스 번호 추가
-  location: {
-    coordinates: [number, number];
-  };
-}
-
 interface MapViewProps {
-  stations?: Station[]; // 옵션으로 외부에서 정류장 목록 전달받을 수 있음
+  stations?: Station[];
 }
 
 type LocationTrackingMode = 'None' | 'NoFollow' | 'Follow' | 'Face';
 const DEFAULT_TRACKING_MODE: LocationTrackingMode = 'NoFollow';
 
 const MapView: React.FC<MapViewProps> = ({stations}) => {
-  // 버스 위치 표시용 웹소켓 참조 변수 (지도 전용)
-  const websocketRef = useRef<ReturnType<
-    typeof createPassengerWebSocket
-  > | null>(null);
 
   const naverMapRef = useRef<any>(null);
 
-  // 상태 관리 최소화
+  // 상태 관리
   const [stationPositions, setStationPositions] = useState<Station[]>([]);
-  const [busPositions, setBusPositions] = useState<BusPosition[]>([]);
+  
+  const busPositions = useBusStore(state => state.busPositions);
+  
   const [camera, setCamera] = useState<Camera>(DEFAULT_CAMERA);
   const [isMapReady, setIsMapReady] = useState(false);
   const [, setLocationTrackingMode] = useState<LocationTrackingMode>(
@@ -62,23 +53,25 @@ const MapView: React.FC<MapViewProps> = ({stations}) => {
   const {showToast} = useToast();
 
   // 버스 표시명 생성 함수
-  const getBusDisplayName = (busRealNumber: string | null, busNumber: string) => {
-    if (busRealNumber) {
-      return busRealNumber;
+  const getBusDisplayName = (
+    busRealNumber: string | null,
+    busNumber: string,
+  ) => {
+    if (busRealNumber && busRealNumber.trim()) {
+      return busRealNumber.trim();
     }
-    return `${busNumber} (가상번호)`;
+    return busNumber || 'N/A';
   };
 
-  // 위치 권한 요청
+  // 위치 권한 요청 (이하 다른 함수들은 그대로 유지)
   const requestLocationPermission = useCallback(async () => {
     try {
       let status;
 
       if (Platform.OS === 'ios') {
-        status = await request(PERMISSIONS.IOS.LOCATION_ALWAYS);
-
+        status = await request(PERMISSIONS.IOS.LOCATION_WHEN_IN_USE);
       } else {
-        status = await request(PERMISSIONS.ANDROID.ACCESS_BACKGROUND_LOCATION);
+        status = await request(PERMISSIONS.ANDROID.ACCESS_FINE_LOCATION);
       }
 
       const granted = status === RESULTS.GRANTED;
@@ -103,11 +96,9 @@ const MapView: React.FC<MapViewProps> = ({stations}) => {
     }
   }, []);
 
-  // 초기 위치로 카메라 설정 (권한이 있으면 현재 위치로)
+  // 초기 위치로 카메라 설정
   const initializeCamera = useCallback(() => {
     if (hasLocationPermission) {
-      // 권한이 있으면 네이버맵이 자동으로 현재 위치로 이동
-      // 초기 로딩시에만 현재 위치 가져오기
       Geolocation.getCurrentPosition(
         position => {
           const {latitude, longitude} = position.coords;
@@ -122,7 +113,7 @@ const MapView: React.FC<MapViewProps> = ({stations}) => {
           setCamera(DEFAULT_CAMERA);
         },
         {
-          enableHighAccuracy: false, // 초기 로딩시 빠른 응답 우선
+          enableHighAccuracy: false,
           timeout: 3000,
           maximumAge: 10000,
         },
@@ -147,93 +138,16 @@ const MapView: React.FC<MapViewProps> = ({stations}) => {
     }
   }, [stations, showToast]);
 
-  // 웹소켓 메시지 처리 (지도 전용 - 버스 위치만)
-  const handleWebSocketMessage = useCallback((data: any) => {
-    try {
-      if (typeof data === 'string') {
-        const rows = data.split('\n');
-        const newBusPositions = rows
-          .filter(Boolean)
-          .map((row: string) => {
-            // 웹소켓 데이터 형식이 "busNumber,busRealNumber,lng,lat" 또는 "busNumber,lng,lat"일 수 있음
-            const parts = row.split(',');
-            
-            if (parts.length >= 3) {
-              // 새로운 형식: busNumber,busRealNumber,lng,lat
-              if (parts.length >= 4) {
-                const [busNumber, busRealNumber, lng, lat] = parts;
-                return {
-                  busNumber: busNumber.trim(),
-                  busRealNumber: busRealNumber && busRealNumber.trim() !== 'null' ? busRealNumber.trim() : null,
-                  location: {
-                    coordinates: [parseFloat(lat), parseFloat(lng)],
-                  },
-                };
-              }
-              // 기존 형식: busNumber,lng,lat
-              else {
-                const [busNumber, lng, lat] = parts;
-                return {
-                  busNumber: busNumber.trim(),
-                  busRealNumber: null,
-                  location: {
-                    coordinates: [parseFloat(lat), parseFloat(lng)],
-                  },
-                };
-              }
-            }
-            return null;
-          })
-          .filter(
-            (pos: any): pos is BusPosition =>
-              pos !== null &&
-              !isNaN(pos.location.coordinates[0]) &&
-              !isNaN(pos.location.coordinates[1]),
-          );
-
-        setBusPositions(newBusPositions);
-      }
-    } catch (error) {
-      console.error('웹소켓 데이터 파싱 오류:', error);
-    }
-  }, []);
-
-  // 지도 전용 웹소켓 연결 설정 (버스 위치 표시만)
-  useEffect(() => {
-    console.log('🗺️ [MapView] 지도 전용 웹소켓 연결 시작 (버스 위치 표시용)');
-    
-    websocketRef.current = createPassengerWebSocket({
-      onOpen: () => {
-        console.log('🗺️ [MapView] 지도용 웹소켓 연결됨');
-      },
-      onMessage: handleWebSocketMessage,
-      onError: error => {
-        console.error('🗺️ [MapView] 지도용 웹소켓 오류:', error);
-      },
-      onClose: () => {
-        console.log('🗺️ [MapView] 지도용 웹소켓 연결 종료');
-      },
-    });
-
-    websocketRef.current.connect('/ws/passenger');
-
-    return () => {
-      console.log('🗺️ [MapView] 지도용 웹소켓 정리');
-      if (websocketRef.current) {
-        websocketRef.current.disconnect();
-        websocketRef.current = null;
-      }
-    };
-  }, [handleWebSocketMessage]);
-
-  // 초기화 - 권한 확인 후 데이터 로드
+  // *** 제거: handleBusUpdate, handleWebSocketMessage, initializeWebSocket 관련 로직 모두 제거 ***
+  
+  // 초기화
   useEffect(() => {
     const initialize = async () => {
       // 1. 위치 권한 확인
       const hasPermission = await requestLocationPermission();
       setHasLocationPermission(hasPermission);
 
-      // 2. 정류장 데이터 로드 (권한과 무관하게 진행)
+      // 2. 정류장 데이터 로드
       await fetchStations();
 
       // 3. 카메라 초기화
@@ -242,7 +156,7 @@ const MapView: React.FC<MapViewProps> = ({stations}) => {
 
     initialize();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []); // 최초 1회만 실행
+  }, []);
 
   // 권한 상태 변경시 카메라 재설정
   useEffect(() => {
@@ -251,18 +165,17 @@ const MapView: React.FC<MapViewProps> = ({stations}) => {
     }
   }, [hasLocationPermission, isMapReady, initializeCamera]);
 
-  // 내 위치로 이동 (네이버맵의 내 위치 버튼 대체)
+  // 내 위치로 이동
   const moveToMyLocation = useCallback(async () => {
     if (!hasLocationPermission) {
       const granted = await requestLocationPermission();
       if (!granted) return;
     }
 
-    // 현재 위치 가져오기
     Geolocation.getCurrentPosition(
       position => {
         const {latitude, longitude} = position.coords;
-        setSelectedStation(null); // 선택된 정류장 해제
+        setSelectedStation(null);
         setCamera({
           latitude,
           longitude,
@@ -302,37 +215,43 @@ const MapView: React.FC<MapViewProps> = ({stations}) => {
     }
   }, [moveToMyLocation, selectedStation, setTrackingMode]);
 
-    // 위치 버튼 클릭 핸들러
-    const handleLocationButtonClick = useCallback(() => {
-      if (!hasLocationPermission) {
-        requestLocationPermission().then(granted => {
-          if (granted) {
-            setSelectedStation(null);
-            moveToMyLocation();
-            setTrackingMode();
-          } else {
-            showToast('위치 추적을 위해 위치 권한이 필요합니다.', 'warning');
-          }
-        });
-        return;
-      } else {
-        setSelectedStation(null);
-        moveToMyLocation();
-        setTrackingMode();
-      }
-    }, [hasLocationPermission, setSelectedStation, moveToMyLocation, setTrackingMode, requestLocationPermission, showToast]);
-
+  // 위치 버튼 클릭 핸들러
+  const handleLocationButtonClick = useCallback(() => {
+    if (!hasLocationPermission) {
+      requestLocationPermission().then(granted => {
+        if (granted) {
+          setSelectedStation(null);
+          moveToMyLocation();
+          setTrackingMode();
+        } else {
+          showToast('위치 추적을 위해 위치 권한이 필요합니다.', 'warning');
+        }
+      });
+      return;
+    } else {
+      setSelectedStation(null);
+      moveToMyLocation();
+      setTrackingMode();
+    }
+  }, [
+    hasLocationPermission,
+    setSelectedStation,
+    moveToMyLocation,
+    setTrackingMode,
+    requestLocationPermission,
+    showToast,
+  ]);
 
   // 지도가 준비되면 표시
   const handleMapReady = useCallback(() => {
     setIsMapReady(true);
   }, []);
-  
-  // 초기 로딩시에만 로딩 화면 표시
+
+  // 초기 로딩
   if (!isMapReady && stationPositions.length === 0) {
     return <LoadingPage />;
   }
-
+  
   return (
     <View style={styles.container}>
       {/* 위치 버튼 */}
@@ -344,17 +263,16 @@ const MapView: React.FC<MapViewProps> = ({stations}) => {
           <MyLocationIcon width={20} height={20} style={styles.locationIcon} />
         </View>
       </TouchableOpacity>
+
       <NaverMapView
         ref={naverMapRef}
         style={styles.map}
         camera={camera}
         minZoom={5}
         maxZoom={20}
-        // 네이버맵의 기본 위치 표시 기능 사용 (권한이 있을 때만)
-        isShowLocationButton={hasLocationPermission}
+        isShowLocationButton={false} // 커스텀 위치 버튼 사용
         isLiteModeEnabled={false}
         onInitialized={handleMapReady}
-        // 레이어 설정
         layerGroups={{
           TRANSIT: true,
           BUILDING: true,
@@ -377,41 +295,51 @@ const MapView: React.FC<MapViewProps> = ({stations}) => {
                   color: theme.colors.gray[900],
                   haloColor: theme.colors.white,
                 }}
-                onTap={() =>
+                onTap={() => {
                   setSelectedStation({
                     ...station,
                     location: station.location
                       ? {
-                          x: station.location.coordinates[0],
-                          y: station.location.coordinates[1],
+                          x: station.location.x,
+                          y: station.location.y,
                         }
                       : undefined,
-                  })
-                }
+                  });
+                }}
                 width={24}
                 height={24}
                 image={require('../../../assets/images/busStop.png')}
               />
             ),
         )}
-
-        {/* 버스 마커 */}
-        {busPositions.map((bus, index) => (
-          <NaverMapMarkerOverlay
-            key={`bus-${bus.busNumber}-${index}`}
-            latitude={bus.location.coordinates[0]}
-            longitude={bus.location.coordinates[1]}
-            caption={{
-              text: getBusDisplayName(bus.busRealNumber, bus.busNumber),
-              textSize: 13,
-              color: theme.colors.gray[900],
-              haloColor: theme.colors.white,
-            }}
-            width={24}
-            height={24}
-            image={require('../../../assets/images/busIcon.png')}
-          />
-        ))}
+        
+        {/* 운행 중인 버스 마커만 표시 */}
+        {busPositions.length > 0 &&
+          busPositions
+            .filter(
+              bus =>
+                bus.operate && // 운행 중인 버스만 필터링
+                bus.latitude >= -90 &&
+                bus.latitude <= 90 &&
+                bus.longitude >= -180 &&
+                bus.longitude <= 180,
+            )
+            .map(bus => (
+              <NaverMapMarkerOverlay
+                key={`bus-${bus.busNumber}`}
+                latitude={bus.latitude}
+                longitude={bus.longitude}
+                caption={{
+                  text: getBusDisplayName(bus.busRealNumber, bus.busNumber),
+                  textSize: 12,
+                  color: theme.colors.gray[900],
+                  haloColor: theme.colors.white,
+                }}
+                width={24}
+                height={24}
+                image={require('../../../assets/images/busIcon.png')}
+              />
+            ))}
       </NaverMapView>
     </View>
   );
@@ -452,9 +380,6 @@ const styles = StyleSheet.create({
   },
   locationButtonActive: {
     backgroundColor: 'white',
-  },
-  myLocationButtonDisabled: {
-    opacity: 0.7,
   },
   locationIcon: {
     width: 22,

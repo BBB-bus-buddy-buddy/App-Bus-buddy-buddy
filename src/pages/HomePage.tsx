@@ -18,7 +18,8 @@ import SearchStationModal from '../components/Station/SearchStationModal';
 import {Station, stationService} from '../api/services/stationService';
 import {userService} from '../api/services/userService';
 import {authService} from '../api/services/authService';
-import { useGlobalWebSocket } from '../providers/GlobalWebSocketProvider';
+// 파일 경로의 대소문자를 실제 파일명과 일치하도록 수정합니다.
+import { useGlobalWebSocket } from '../providers/globalWebSocketProvider';
 import theme from '../theme';
 import IconSearch from '../components/assets/icons/IconSearch';
 import _Ionicons from 'react-native-vector-icons/Ionicons';

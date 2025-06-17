@@ -21,7 +21,8 @@ import { ToastProvider } from './src/components/common/Toast';
 import RouteListPage from './src/pages/RouteListPage';
 import MyPage from './src/components/MyPage';
 import BusSchedulePage from './src/pages/BusSchedulePage';
-import GlobalWebSocketProvider from './src/providers/GlobalWebSocketProvider';
+import { GlobalWebSocketProvider } from './src/providers/globalWebSocketProvider'; // 수정된 경로
+
 // 네비게이션 타입 정의
 export type RootStackParamList = {
   Login: undefined;
@@ -29,7 +30,7 @@ export type RootStackParamList = {
   Loading: undefined;
   Home: {token?: string};
   BusDirection: undefined;
-  BusList: undefined;
+  BusList: {routeId: string; routeName: string}; // routeId, routeName 추가
   BusRoute: {busNumber: string};
   RouteList: undefined;
   MyPage: undefined; // Added MyPage to the type definition
@@ -68,6 +69,7 @@ const App = () => {
   return (
       <SafeAreaProvider>
           <ToastProvider>
+            <GlobalWebSocketProvider>
           <NavigationContainer>
           <Stack.Navigator
             initialRouteName="Login"
@@ -92,6 +94,7 @@ const App = () => {
             />
           </Stack.Navigator>
         </NavigationContainer>
+        </GlobalWebSocketProvider>
         </ToastProvider>
       </SafeAreaProvider>
   );

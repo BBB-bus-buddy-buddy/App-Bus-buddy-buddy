@@ -13,6 +13,7 @@ import theme from '../../theme';
 import {busService, BusRealTimeStatus} from '../../api/services/busService';
 import {stationService} from '../../api/services/stationService';
 import {useToast} from '../common/Toast';
+import useBoardingStore from '../../store/useBoardingStore'; // 1. useBoardingStore import
 
 interface StationDetailProps {
   stationId: string;
@@ -31,9 +32,14 @@ const StationDetail: React.FC<StationDetailProps> = ({stationId}) => {
   const [error, setError] = useState<string | null>(null);
   const navigation = useNavigation();
   const {showToast} = useToast();
+  // 2. 탑승 중인 버스 번호 가져오기
+  const {boardedBusNumber} = useBoardingStore();
 
   // 버스 표시명 생성 함수
-  const getBusDisplayName = (busRealNumber: string | null, busNumber: string) => {
+  const getBusDisplayName = (
+    busRealNumber: string | null,
+    busNumber: string,
+  ) => {
     if (busRealNumber) {
       return busRealNumber;
     }
@@ -57,13 +63,20 @@ const StationDetail: React.FC<StationDetailProps> = ({stationId}) => {
 
       // 🔄 해당 정류장을 지나는 운행 중인 버스만 조회
       const busesData = await busService.getBusesByStation(stationId);
-      
-      console.log(`📊 정류장 ${stationId}를 지나는 운행 중인 버스: ${busesData.length}대`);
+
+      console.log(
+        `📊 정류장 ${stationId}를 지나는 운행 중인 버스: ${busesData.length}대`,
+      );
 
       // 추가 필터링: isOperate 확인 (busService에서 이미 필터링되지만 이중 체크)
       const operatingBuses = busesData.filter(bus => {
         if (!bus.operate) {
-          console.warn(`⚠️ 운행 중지된 버스 감지: ${getBusDisplayName(bus.busRealNumber, bus.busNumber)}`);
+          console.warn(
+            `⚠️ 운행 중지된 버스 감지: ${getBusDisplayName(
+              bus.busRealNumber,
+              bus.busNumber,
+            )}`,
+          );
           return false;
         }
         return true;
@@ -75,8 +88,13 @@ const StationDetail: React.FC<StationDetailProps> = ({stationId}) => {
       const busesWithArrival = await Promise.all(
         operatingBuses.map(async bus => {
           try {
-            console.log(`🕐 버스 ${getBusDisplayName(bus.busRealNumber, bus.busNumber)} 도착 시간 조회 중...`);
-            
+            console.log(
+              `🕐 버스 ${getBusDisplayName(
+                bus.busRealNumber,
+                bus.busNumber,
+              )} 도착 시간 조회 중...`,
+            );
+
             const arrivalData = await stationService.getArrivalEstimate(
               bus.busNumber,
               stationId,
@@ -90,9 +108,16 @@ const StationDetail: React.FC<StationDetailProps> = ({stationId}) => {
               };
             }
 
-            const seconds = convertTimeStringToSeconds(arrivalData.estimatedTime);
+            const seconds = convertTimeStringToSeconds(
+              arrivalData.estimatedTime,
+            );
 
-            console.log(`⏰ 버스 ${getBusDisplayName(bus.busRealNumber, bus.busNumber)}: ${arrivalData.estimatedTime} (${seconds}초)`);
+            console.log(
+              `⏰ 버스 ${getBusDisplayName(
+                bus.busRealNumber,
+                bus.busNumber,
+              )}: ${arrivalData.estimatedTime} (${seconds}초)`,
+            );
 
             return {
               ...bus,
@@ -101,7 +126,10 @@ const StationDetail: React.FC<StationDetailProps> = ({stationId}) => {
             };
           } catch (innerError) {
             console.error(
-              `❌ 버스 ${getBusDisplayName(bus.busRealNumber, bus.busNumber)} 도착 시간 조회 실패:`,
+              `❌ 버스 ${getBusDisplayName(
+                bus.busRealNumber,
+                bus.busNumber,
+              )} 도착 시간 조회 실패:`,
               innerError,
             );
             return {
@@ -122,7 +150,12 @@ const StationDetail: React.FC<StationDetailProps> = ({stationId}) => {
 
       console.log(`📋 정렬된 버스 목록:`);
       sortedBuses.forEach((bus, index) => {
-        console.log(`  ${index + 1}. ${getBusDisplayName(bus.busRealNumber, bus.busNumber)} - ${bus.estimatedTime}`);
+        console.log(
+          `  ${index + 1}. ${getBusDisplayName(
+            bus.busRealNumber,
+            bus.busNumber,
+          )} - ${bus.estimatedTime}`,
+        );
       });
 
       setBuses(sortedBuses);
@@ -218,68 +251,92 @@ const StationDetail: React.FC<StationDetailProps> = ({stationId}) => {
     return `${minutes}분 ${remainingSeconds}초`;
   };
   // 버스 아이템 렌더링
-  const renderBusItem = ({item}: {item: BusWithArrival}) => (
-    <Card
-      variant="filled"
-      padding="md"
-      style={[
-        styles.busCard,
-        // 운행 중지된 버스는 회색 처리 (이론적으로는 표시되지 않아야 함)
-        !item.operate && styles.inactiveBusCard
-      ]}
-      onPress={() => handleBusPress(item.busNumber, item.operate)}>
-      <View style={styles.busRow}>
-        <View style={styles.busNumberContainer}>
-          <View style={styles.busHeaderRow}>
-            <Text variant="md" weight="bold" style={[
-              styles.busNumber,
-              !item.operate && styles.inactiveBusText
-            ]}>
-              {getBusDisplayName(item.busRealNumber, item.busNumber)}
-            </Text>
-          </View>
-          <Text variant="xs" color={theme.colors.gray[500]} style={styles.busSubtitle}>
-            {getBusSubtitle(item.busRealNumber, item.busNumber)}
-          </Text>
-          <Text variant="xs" color={theme.colors.gray[500]}>
-            {item.routeName}
-          </Text>
-        </View>
+  const renderBusItem = ({item}: {item: BusWithArrival}) => {
+    // 3. 탑승 여부 확인
+    const isBoarded = item.busNumber === boardedBusNumber;
 
-        <View style={styles.busInfoContainer}>
-          <View style={styles.arrivalTimeContainer}>
-            <Text
-              variant="md"
-              weight="medium"
-              color={item.operate ? theme.colors.system.error : theme.colors.gray[400]}
-              style={styles.arrivalTime}>
-              {item.operate ? item.estimatedTime : '운행 중지'}
-            </Text>
-          </View>
-
-          <View style={styles.seatsContainer}>
-            <View style={styles.progressBarContainer}>
-              <View
+    return (
+      <Card
+        variant="filled"
+        padding="md"
+        style={[styles.busCard, !item.operate && styles.inactiveBusCard]}
+        onPress={() => handleBusPress(item.busNumber, item.operate)}>
+        <View style={styles.busRow}>
+          <View style={styles.busNumberContainer}>
+            <View style={styles.busHeaderRow}>
+              <Text
+                variant="md"
+                weight="bold"
                 style={[
-                  styles.progressBar,
-                  {
-                    width: `${(item.occupiedSeats / item.totalSeats) * 100}%`,
-                    backgroundColor: item.operate 
-                      ? theme.colors.primary.default 
-                      : theme.colors.gray[300]
-                  },
-                ]}
-              />
+                  styles.busNumber,
+                  !item.operate && styles.inactiveBusText,
+                ]}>
+                {getBusDisplayName(item.busRealNumber, item.busNumber)}
+              </Text>
+              {/* 4. 탑승 중일 경우 배지 표시 */}
+              {isBoarded && (
+                <View style={styles.boardingBadge}>
+                  <Text style={styles.boardingBadgeText}>탑승중</Text>
+                </View>
+              )}
             </View>
-            <Text variant="xs" color={item.operate ? theme.colors.gray[600] : theme.colors.gray[400]}>
-              {item.availableSeats}/{item.totalSeats}석
+            <Text
+              variant="xs"
+              color={theme.colors.gray[500]}
+              style={styles.busSubtitle}>
+              {getBusSubtitle(item.busRealNumber, item.busNumber)}
+            </Text>
+            <Text variant="xs" color={theme.colors.gray[500]}>
+              {item.routeName}
             </Text>
           </View>
-        </View>
-      </View>
-    </Card>
-  );
 
+          <View style={styles.busInfoContainer}>
+            <View style={styles.arrivalTimeContainer}>
+              <Text
+                variant="md"
+                weight="medium"
+                color={
+                  item.operate
+                    ? theme.colors.system.error
+                    : theme.colors.gray[400]
+                }
+                style={styles.arrivalTime}>
+                {item.operate ? item.estimatedTime : '운행 중지'}
+              </Text>
+            </View>
+
+            <View style={styles.seatsContainer}>
+              <View style={styles.progressBarContainer}>
+                <View
+                  style={[
+                    styles.progressBar,
+                    {
+                      width: `${
+                        (item.occupiedSeats / item.totalSeats) * 100
+                      }%`,
+                      backgroundColor: item.operate
+                        ? theme.colors.primary.default
+                        : theme.colors.gray[300],
+                    },
+                  ]}
+                />
+              </View>
+              <Text
+                variant="xs"
+                color={
+                  item.operate
+                    ? theme.colors.gray[600]
+                    : theme.colors.gray[400]
+                }>
+                {item.availableSeats}/{item.totalSeats}석
+              </Text>
+            </View>
+          </View>
+        </View>
+      </Card>
+    );
+  };
 
   // 빈 목록 처리 (운행 중인 버스 강조)
   const renderEmptyList = () => (
@@ -290,7 +347,10 @@ const StationDetail: React.FC<StationDetailProps> = ({stationId}) => {
         style={styles.emptyText}>
         {error || '이 정류장을 지나는 운행 중인 버스가 없습니다.'}
       </Text>
-      <Text variant="sm" color={theme.colors.gray[400]} style={styles.emptySubText}>
+      <Text
+        variant="sm"
+        color={theme.colors.gray[400]}
+        style={styles.emptySubText}>
         현재 시간에 운행하는 버스만 표시됩니다.
       </Text>
     </View>
@@ -327,6 +387,7 @@ const StationDetail: React.FC<StationDetailProps> = ({stationId}) => {
   );
 };
 
+// 5. 스타일시트에 배지 스타일 추가
 const styles = StyleSheet.create({
   // ... 기존 스타일들
   loadingContainer: {
@@ -358,11 +419,24 @@ const styles = StyleSheet.create({
   busHeaderRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
+    // justifyContent는 제거하여 배지가 자연스럽게 옆에 오도록 함
   },
   busNumber: {
     color: theme.colors.primary.default,
-    flex: 1,
+    // flex: 1 제거
+  },
+  boardingBadge: {
+    backgroundColor: theme.colors.primary.default,
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 4,
+    marginLeft: 8,
+    alignSelf: 'center',
+  },
+  boardingBadgeText: {
+    color: theme.colors.white,
+    fontSize: 10,
+    fontWeight: 'bold',
   },
   inactiveBusText: {
     color: theme.colors.gray[500],

@@ -1,5 +1,11 @@
 import React, {useEffect, useState, useCallback, useRef} from 'react';
-import {View, StyleSheet, TouchableOpacity, Platform, ActivityIndicator} from 'react-native';
+import {
+  View,
+  StyleSheet,
+  TouchableOpacity,
+  Platform,
+  ActivityIndicator,
+} from 'react-native';
 import Geolocation from '@react-native-community/geolocation';
 import {
   Camera,
@@ -15,7 +21,7 @@ import useSelectedStationStore from '../../store/useSelectedStationStore';
 import {useToast} from '../../components/common/Toast';
 import MyLocationIcon from '../../../assets/logos/myLocation.svg';
 
-import useBusStore from '../../store/useBusStore'; 
+import useBusStore from '../../store/useBusStore';
 import useBoardingStore from '../../store/useBoardingStore'; // 탑승 상태 스토어 import
 
 // 지도 카메라 초기 위치 (기본값: 서울)
@@ -33,19 +39,17 @@ type LocationTrackingMode = 'None' | 'NoFollow' | 'Follow' | 'Face';
 const DEFAULT_TRACKING_MODE: LocationTrackingMode = 'NoFollow';
 
 const MapView: React.FC<MapViewProps> = ({stations}) => {
-
   const naverMapRef = useRef<any>(null);
 
   // 상태 관리
   const [stationPositions, setStationPositions] = useState<Station[]>([]);
-  
+
   const busPositions = useBusStore(state => state.busPositions);
-  const { isBoarded, boardedBusNumber } = useBoardingStore();
+  const {isBoarded, boardedBusNumber} = useBoardingStore();
   const [camera, setCamera] = useState<Camera>(DEFAULT_CAMERA);
   const [isMapReady, setIsMapReady] = useState(false);
-  const [, setLocationTrackingMode] = useState<LocationTrackingMode>(
-    DEFAULT_TRACKING_MODE,
-  );
+  const [, setLocationTrackingMode] =
+    useState<LocationTrackingMode>(DEFAULT_TRACKING_MODE);
   const [hasLocationPermission, setHasLocationPermission] = useState(false);
   const [isInitialLoad, setIsInitialLoad] = useState(true);
 
@@ -53,26 +57,28 @@ const MapView: React.FC<MapViewProps> = ({stations}) => {
   const {selectedStation, setSelectedStation} = useSelectedStationStore();
   const {showToast} = useToast();
 
-    // 내가 탑승한 버스의 위치 정보를 찾습니다.
-  const boardedBus = isBoarded 
-    ? busPositions.find(bus => bus.busNumber === boardedBusNumber) 
+    const boardedBus = isBoarded
+    ? busPositions.find(bus => bus.busNumber === boardedBusNumber)
     : null;
 
-  // 탑승 상태가 변경되거나, 내가 탄 버스의 위치가 바뀔 때마다 카메라를 이동시킵니다.
-  useEffect(() => {
-    if (isBoarded && boardedBus && naverMapRef.current) {
-      naverMapRef.current.animateToRegion(
-        {
+    useEffect(() => {
+    // 탑승 상태이고, 탑승한 버스의 위치 정보가 유효할 때
+    if (isBoarded && boardedBus) {
+      if (
+        typeof boardedBus.latitude === 'number' &&
+        typeof boardedBus.longitude === 'number'
+      ) {
+        console.log(`[MapView] 탑승 버스 카메라 추적:`, boardedBus);
+        // camera 상태를 업데이트하여 NaverMapView가 선언적으로 반응하도록 함
+        setCamera(prevCamera => ({
+          ...prevCamera,
           latitude: boardedBus.latitude,
           longitude: boardedBus.longitude,
-          latitudeDelta: 0.01, // 확대 수준
-          longitudeDelta: 0.01,
-        },
-        1000 // 1초 동안 부드럽게 이동
-      );
+          zoom: 17, // 버스를 따라갈 때 좀 더 확대
+        }));
+      }
     }
-  }, [isBoarded, boardedBus]);
-
+  }, [isBoarded, boardedBus]); // 탑승 상태와 버스 정보가 변경될 때마다 실행
 
   // 버스 표시명 생성 함수
   const getBusDisplayName = (
@@ -160,8 +166,6 @@ const MapView: React.FC<MapViewProps> = ({stations}) => {
     }
   }, [stations, showToast]);
 
-  // *** 제거: handleBusUpdate, handleWebSocketMessage, initializeWebSocket 관련 로직 모두 제거 ***
-  
   // 초기화
   useEffect(() => {
     const initialize = async () => {
@@ -273,7 +277,7 @@ const MapView: React.FC<MapViewProps> = ({stations}) => {
   if (!isMapReady && stationPositions.length === 0) {
     return <LoadingPage />;
   }
-  
+
   return (
     <View style={styles.container}>
       {/* 위치 버튼 */}
@@ -334,7 +338,7 @@ const MapView: React.FC<MapViewProps> = ({stations}) => {
               />
             ),
         )}
-        
+
         {/* 운행 중인 버스 마커만 표시 */}
         {busPositions.length > 0 &&
           busPositions
@@ -348,23 +352,32 @@ const MapView: React.FC<MapViewProps> = ({stations}) => {
             )
             .map(bus => {
               const isMyBus = bus.busNumber === boardedBusNumber;
+              const captionText = isMyBus
+                ? `${getBusDisplayName(
+                    bus.busRealNumber,
+                    bus.busNumber,
+                  )} (탑승중)`
+                : getBusDisplayName(bus.busRealNumber, bus.busNumber);
               return (
-              <NaverMapMarkerOverlay
-                key={`bus-${bus.busNumber}`}
-                latitude={bus.latitude}
-                longitude={bus.longitude}
-                caption={{
-                  text: getBusDisplayName(bus.busRealNumber, bus.busNumber),
-                  color: isMyBus ? theme.colors.system.warning[900] : theme.colors.gray[900],
-                  textSize: 12,
-                  haloColor: theme.colors.white,
-                }}
-                width={24}
-                height={24}
-                zIndex={isMyBus ? 100 : 10} 
-                image={require('../../../assets/images/busIcon.png')}
-              />
-            )})}
+                <NaverMapMarkerOverlay
+                  key={`bus-${bus.busNumber}`}
+                  latitude={bus.latitude}
+                  longitude={bus.longitude}
+                  caption={{
+                    text: captionText,
+                    color: isMyBus
+                      ? theme.colors.system.warning
+                      : theme.colors.gray[900],
+                    textSize: 12,
+                    haloColor: theme.colors.white,
+                  }}
+                  width={24}
+                  height={24}
+                  zIndex={isMyBus ? 100 : 10}
+                  image={require('../../../assets/images/busIcon.png')}
+                />
+              );
+            })}
       </NaverMapView>
     </View>
   );

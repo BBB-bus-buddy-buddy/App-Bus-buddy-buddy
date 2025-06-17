@@ -13,6 +13,7 @@ import useSelectedStationStore from '../store/useSelectedStationStore';
 import theme from '../theme';
 import {busService, BusRealTimeStatus} from '../api/services/busService';
 import {LoadingContainer} from './LoadingPage';
+import useBoardingStore from '../store/useBoardingStore'; // 1. useBoardingStore를 import 합니다.
 
 // 네비게이션 타입 정의
 type RootStackParamList = {
@@ -45,10 +46,19 @@ const BusRoutePage: React.FC = () => {
   const {setSelectedStation} = useSelectedStationStore();
   const navigation = useNavigation();
 
+  // 2. 탑승 중인 버스 번호를 가져옵니다.
+  const {boardedBusNumber} = useBoardingStore();
+
   const busNumber = route.params.busNumber;
 
+  // 3. 현재 보고 있는 버스가 탑승 중인 버스인지 확인합니다.
+  const isBoarded = busNumber === boardedBusNumber;
+
   // 버스 표시명 생성 함수
-  const getBusDisplayName = (busRealNumber: string | null, busNumber: string) => {
+  const getBusDisplayName = (
+    busRealNumber: string | null,
+    busNumber: string,
+  ) => {
     if (busRealNumber) {
       return busRealNumber;
     }
@@ -231,7 +241,10 @@ const BusRoutePage: React.FC = () => {
   const renderSeatInfo = () => {
     if (!busInfo) return null;
 
-    const occupancyRate = calculateOccupancyRate(busInfo.occupiedSeats, busInfo.totalSeats);
+    const occupancyRate = calculateOccupancyRate(
+      busInfo.occupiedSeats,
+      busInfo.totalSeats,
+    );
     const occupancyColor = getOccupancyColor(occupancyRate);
     const seatStatusText = getSeatStatusText(occupancyRate);
 
@@ -239,26 +252,32 @@ const BusRoutePage: React.FC = () => {
       <View style={styles.seatInfoContainer}>
         <View style={styles.seatProgressContainer}>
           <View style={styles.seatProgressBackground}>
-            <View 
+            <View
               style={[
                 styles.seatProgressBar,
                 {
                   width: `${occupancyRate}%`,
                   backgroundColor: occupancyColor,
-                }
-              ]} 
+                },
+              ]}
             />
           </View>
           <View style={styles.seatTextContainer}>
             <Text style={styles.seatStatusText}>
-              좌석 상황: <Text style={[styles.seatStatus, {color: occupancyColor}]}>{seatStatusText}</Text>
+              좌석 상황:{' '}
+              <Text style={[styles.seatStatus, {color: occupancyColor}]}>
+                {seatStatusText}
+              </Text>
             </Text>
             <Text style={styles.seatDetailText}>
-              {busInfo.totalSeats - busInfo.occupiedSeats}석 여유 ({busInfo.occupiedSeats}/{busInfo.totalSeats})
+              {busInfo.totalSeats - busInfo.occupiedSeats}석 여유 (
+              {busInfo.occupiedSeats}/{busInfo.totalSeats})
             </Text>
           </View>
         </View>
-        <View style={[styles.seatIndicator, {backgroundColor: occupancyColor}]} />
+        <View
+          style={[styles.seatIndicator, {backgroundColor: occupancyColor}]}
+        />
       </View>
     );
   };
@@ -285,21 +304,29 @@ const BusRoutePage: React.FC = () => {
       <View style={styles.header}>
         {/* 메인 타이틀 - busRealNumber 중심 */}
         <View style={styles.headerTitleContainer}>
-          <Text style={styles.headerMainTitle}>
-            {getBusDisplayName(busInfo?.busRealNumber || null, busNumber)}
-          </Text>
+          <View style={styles.titleRow}>
+            <Text style={styles.headerMainTitle}>
+              {getBusDisplayName(busInfo?.busRealNumber || null, busNumber)}
+            </Text>
+            {/* 4. isBoarded가 true일 때 "탑승중" 배지를 렌더링합니다. */}
+            {isBoarded && (
+              <View style={styles.boardingBadge}>
+                <Text style={styles.boardingBadgeText}>탑승중</Text>
+              </View>
+            )}
+          </View>
           <Text style={styles.headerSubtitle}>
             {getBusSubtitle(busInfo?.busRealNumber || null, busNumber)}
           </Text>
         </View>
-        
+
         {/* 도착 시간 정보 */}
         {estimatedTime && (
           <Text style={styles.headerArrivalTime}>
             약 {extractMinutes(estimatedTime)}분 후 도착
           </Text>
         )}
-        
+
         {/* 좌석 정보 표시 */}
         {renderSeatInfo()}
       </View>
@@ -316,6 +343,7 @@ const BusRoutePage: React.FC = () => {
   );
 };
 
+// 5. 스타일시트에 새로운 스타일들을 추가합니다.
 const styles = StyleSheet.create({
   container: {
     flex: 1,
@@ -337,11 +365,27 @@ const styles = StyleSheet.create({
   headerTitleContainer: {
     marginBottom: theme.spacing.sm,
   },
+  titleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 4,
+  },
   headerMainTitle: {
     fontSize: theme.typography.text.xl.fontSize,
     fontWeight: theme.typography.fontWeight.bold as TextStyle['fontWeight'],
     color: theme.colors.gray[900],
-    marginBottom: 4,
+  },
+  boardingBadge: {
+    backgroundColor: theme.colors.primary.default,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: theme.borderRadius.sm,
+    marginLeft: theme.spacing.sm,
+  },
+  boardingBadgeText: {
+    color: theme.colors.white,
+    fontSize: 12,
+    fontWeight: '600',
   },
   headerSubtitle: {
     fontSize: theme.typography.text.sm.fontSize,
@@ -353,7 +397,7 @@ const styles = StyleSheet.create({
     fontWeight: theme.typography.fontWeight.medium as TextStyle['fontWeight'],
     marginBottom: theme.spacing.sm,
   },
-  
+
   // 좌석 정보 스타일
   seatInfoContainer: {
     flexDirection: 'row',
@@ -399,7 +443,7 @@ const styles = StyleSheet.create({
     borderRadius: 6,
     marginLeft: theme.spacing.sm,
   },
-  
+
   stationList: {
     flex: 1,
   },

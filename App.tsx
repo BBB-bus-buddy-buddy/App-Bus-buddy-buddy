@@ -21,6 +21,7 @@ import { ToastProvider } from './src/components/common/Toast';
 import RouteListPage from './src/pages/RouteListPage';
 import MyPage from './src/components/MyPage';
 import BusSchedulePage from './src/pages/BusSchedulePage';
+import GlobalWebSocketProvider from './src/providers/GlobalWebSocketProvider';
 // 네비게이션 타입 정의
 export type RootStackParamList = {
   Login: undefined;
@@ -67,7 +68,7 @@ const App = () => {
   return (
       <SafeAreaProvider>
           <ToastProvider>
-        <NavigationContainer>
+          <NavigationContainer>
           <Stack.Navigator
             initialRouteName="Login"
             screenOptions={{

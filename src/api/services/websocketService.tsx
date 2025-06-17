@@ -164,6 +164,7 @@ export class BusPassengerWebSocketService {
 
   // 승객 위치 정보 전송 (자동 탑승 감지용, 백엔드 형식에 맞춤)
   sendLocationUpdate(locationData: PassengerLocationDTO): void {
+      console.log('🌐 [WebSocket] 위치 업데이트 전송 시도:', locationData);
     this.send({
       type: 'location',
       organizationId: locationData.organizationId,

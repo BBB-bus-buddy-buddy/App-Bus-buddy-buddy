@@ -16,6 +16,7 @@ import {useToast} from '../../components/common/Toast';
 import MyLocationIcon from '../../../assets/logos/myLocation.svg';
 
 import useBusStore from '../../store/useBusStore'; 
+import useBoardingStore from '../../store/useBoardingStore'; // 탑승 상태 스토어 import
 
 // 지도 카메라 초기 위치 (기본값: 서울)
 const DEFAULT_CAMERA: Camera = {
@@ -39,7 +40,7 @@ const MapView: React.FC<MapViewProps> = ({stations}) => {
   const [stationPositions, setStationPositions] = useState<Station[]>([]);
   
   const busPositions = useBusStore(state => state.busPositions);
-  
+  const { isBoarded, boardedBusNumber } = useBoardingStore();
   const [camera, setCamera] = useState<Camera>(DEFAULT_CAMERA);
   const [isMapReady, setIsMapReady] = useState(false);
   const [, setLocationTrackingMode] = useState<LocationTrackingMode>(
@@ -51,6 +52,27 @@ const MapView: React.FC<MapViewProps> = ({stations}) => {
   // 선택된 정류장 전역 상태 관리
   const {selectedStation, setSelectedStation} = useSelectedStationStore();
   const {showToast} = useToast();
+
+    // 내가 탑승한 버스의 위치 정보를 찾습니다.
+  const boardedBus = isBoarded 
+    ? busPositions.find(bus => bus.busNumber === boardedBusNumber) 
+    : null;
+
+  // 탑승 상태가 변경되거나, 내가 탄 버스의 위치가 바뀔 때마다 카메라를 이동시킵니다.
+  useEffect(() => {
+    if (isBoarded && boardedBus && naverMapRef.current) {
+      naverMapRef.current.animateToRegion(
+        {
+          latitude: boardedBus.latitude,
+          longitude: boardedBus.longitude,
+          latitudeDelta: 0.01, // 확대 수준
+          longitudeDelta: 0.01,
+        },
+        1000 // 1초 동안 부드럽게 이동
+      );
+    }
+  }, [isBoarded, boardedBus]);
+
 
   // 버스 표시명 생성 함수
   const getBusDisplayName = (
@@ -324,22 +346,25 @@ const MapView: React.FC<MapViewProps> = ({stations}) => {
                 bus.longitude >= -180 &&
                 bus.longitude <= 180,
             )
-            .map(bus => (
+            .map(bus => {
+              const isMyBus = bus.busNumber === boardedBusNumber;
+              return (
               <NaverMapMarkerOverlay
                 key={`bus-${bus.busNumber}`}
                 latitude={bus.latitude}
                 longitude={bus.longitude}
                 caption={{
                   text: getBusDisplayName(bus.busRealNumber, bus.busNumber),
+                  color: isMyBus ? theme.colors.system.warning[900] : theme.colors.gray[900],
                   textSize: 12,
-                  color: theme.colors.gray[900],
                   haloColor: theme.colors.white,
                 }}
                 width={24}
                 height={24}
+                zIndex={isMyBus ? 100 : 10} 
                 image={require('../../../assets/images/busIcon.png')}
               />
-            ))}
+            )})}
       </NaverMapView>
     </View>
   );

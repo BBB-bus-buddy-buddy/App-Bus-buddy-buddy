@@ -15,10 +15,10 @@ import {useToast} from '../components/common/Toast';
 import MapView from '../components/Map/MapView';
 import StationPanel from '../components/Station/StationPanel';
 import SearchStationModal from '../components/Station/SearchStationModal';
-import PassengerLocationTracker from '../components/PassengerLocationTracker';
 import {Station, stationService} from '../api/services/stationService';
 import {userService} from '../api/services/userService';
 import {authService} from '../api/services/authService';
+import { useGlobalWebSocket } from '../providers/GlobalWebSocketProvider';
 import theme from '../theme';
 import IconSearch from '../components/assets/icons/IconSearch';
 import _Ionicons from 'react-native-vector-icons/Ionicons';
@@ -34,7 +34,10 @@ const HomePage: React.FC = () => {
   const [searchModalVisible, setSearchModalVisible] = useState(false);
   const [allStations, setAllStations] = useState<Station[]>([]);
 
-  // 자동 추적은 항상 활성화 상태로 설정
+  // 전역 웹소켓 상태
+  const { isConnected, restart, ensureConnection } = useGlobalWebSocket();
+
+  // 추적 정보 상태
   const [trackingInfo, setTrackingInfo] = useState<{
     active: boolean;
     timeLeft: string;
@@ -87,30 +90,35 @@ const HomePage: React.FC = () => {
     return `${hours}시간 ${minutes}분 남음`;
   };
 
-
-  // 위치 추적 즉시 재시작
+  // 위치 추적 재시작 (전역 웹소켓 재시작)
   const handleRestartTracking = async () => {
-    // 새로운 시작 시간 설정
-    const now = Date.now();
-    await AsyncStorage.setItem('location_tracking_start_time', now.toString());
-    await AsyncStorage.setItem('location_tracking_active', 'true');
+    try {
+      // 새로운 시작 시간 설정
+      const now = Date.now();
+      await AsyncStorage.setItem('location_tracking_start_time', now.toString());
+      await AsyncStorage.setItem('location_tracking_active', 'true');
 
-    // 추적 정보 갱신
-    setTrackingInfo({
-      active: true,
-      timeLeft: calculateRemainingTime(now),
-    });
+      // 전역 웹소켓 서비스 재시작
+      const success = await restart();
+      
+      if (success) {
+        // 추적 정보 갱신
+        setTrackingInfo({
+          active: true,
+          timeLeft: calculateRemainingTime(now),
+        });
 
-    showToast(
-      '위치 추적이 재시작되었습니다. 2시간 동안 위치를 공유합니다.',
-      'success',
-    );
-
-    // 앱을 다시 시작하는 효과를 위해 페이지 리로드
-    setIsLoading(true);
-    setTimeout(() => {
-      loadData();
-    }, 500);
+        showToast(
+          '위치 추적이 재시작되었습니다. 2시간 동안 위치를 공유합니다.',
+          'success',
+        );
+      } else {
+        showToast('위치 추적 재시작에 실패했습니다.', 'error');
+      }
+    } catch (error) {
+      console.error('Restart tracking error:', error);
+      showToast('위치 추적 재시작 중 오류가 발생했습니다.', 'error');
+    }
   };
 
   // 페이지 초기 로딩
@@ -125,7 +133,7 @@ const HomePage: React.FC = () => {
       // 추적 정보 로드
       await loadTrackingInfo();
 
-      // 자동 추적 항상 활성화 상태로 설정 (추적을 사용하는데 필요한 설정)
+      // 자동 추적 항상 활성화 상태로 설정
       await AsyncStorage.setItem('auto_tracking_enabled', 'true');
       await AsyncStorage.setItem('location_tracking_active', 'true');
 
@@ -135,6 +143,9 @@ const HomePage: React.FC = () => {
       // 즐겨찾기 정류장 로드
       const favoriteStations = await userService.getMyStations();
       setMyStations(favoriteStations);
+
+      // 전역 웹소켓 연결 확인
+      await ensureConnection();
     } catch (error) {
       console.error('Error loading data:', error);
       showToast('데이터를 불러오는데 실패했습니다.', 'error');
@@ -162,7 +173,8 @@ const HomePage: React.FC = () => {
         Alert.alert(
           '자동 탑승 기능 안내',
           '위치 기반 자동 탑승 기능은 앱 사용 시 항상 활성화되며, 앱을 닫아도 최대 2시간 동안 백그라운드에서 계속 작동합니다.\n\n' +
-            '앱을 다시 열면 2시간 타이머가 초기화됩니다.',
+            '앱을 다시 열면 2시간 타이머가 초기화됩니다.\n\n' +
+            '10초마다 위치를 확인하여 자동 탑승을 감지합니다.',
           [{text: '확인', style: 'default'}],
         );
         await AsyncStorage.setItem('location_tracking_info_shown', 'true');
@@ -241,14 +253,22 @@ const HomePage: React.FC = () => {
 
       {/* 상단 고정 영역 */}
       <View style={styles.topContainer}>
-        {/* 자동 탑승 기능 상태 표시 (토글 스위치 제거) */}
+        {/* 자동 탑승 기능 상태 표시 */}
         <View style={styles.autoTrackingContainer}>
           <View style={styles.autoTrackingContent}>
             <View style={styles.trackingTitleContainer}>
               <Text variant="md" weight="semiBold">
                 자동 탑승 감지
               </Text>
-              {trackingInfo.active && (
+              {/* 웹소켓 연결 상태 표시 */}
+              <View style={[
+                styles.statusDot, 
+                { backgroundColor: isConnected ? theme.colors.system.success : theme.colors.system.error }
+              ]} />
+              <Text variant="sm" color={isConnected ? theme.colors.system.success : theme.colors.system.error}>
+                {isConnected ? '연결됨' : '연결 끊김'}
+              </Text>
+              {trackingInfo.active && isConnected && (
                 <>
                   <View style={styles.statusDot} />
                   <Text variant="sm" color={theme.colors.system.info}>
@@ -256,6 +276,11 @@ const HomePage: React.FC = () => {
                   </Text>
                 </>
               )}
+            </View>
+            <View style={styles.autoTrackingDescContainer}>
+              <Text variant="xs" color={theme.colors.gray[600]} style={styles.autoTrackingDesc}>
+                10초마다 위치를 확인하여 자동 탑승을 감지합니다
+              </Text>
             </View>
           </View>
           <View style={styles.controlsContainer}>
@@ -269,12 +294,15 @@ const HomePage: React.FC = () => {
                 color={theme.colors.system.info}
               />
             </TouchableOpacity>
-            <View style={styles.activeIndicator}>
+            <View style={[
+              styles.activeIndicator,
+              { backgroundColor: isConnected ? theme.colors.system.success + '20' : theme.colors.system.error + '20' }
+            ]}>
               <Text
                 variant="sm"
                 weight="medium"
-                color={theme.colors.system.success}>
-                활성화됨
+                color={isConnected ? theme.colors.system.success : theme.colors.system.error}>
+                {isConnected ? '활성화됨' : '비활성화됨'}
               </Text>
             </View>
           </View>
@@ -291,9 +319,6 @@ const HomePage: React.FC = () => {
           </Button>
         </View>
       </View>
-
-      {/* 위치 추적 컴포넌트 (UI에 영향 없이 백그라운드에서 작동) */}
-      <PassengerLocationTracker isEnabled={true} />
 
       {/* 지도 영역 */}
       <View style={styles.mapContainer}>
@@ -365,7 +390,6 @@ const styles = StyleSheet.create({
     width: 5,
     height: 5,
     borderRadius: 2.5,
-    backgroundColor: theme.colors.system.info,
     marginHorizontal: 6,
   },
   restartButton: {
@@ -380,7 +404,6 @@ const styles = StyleSheet.create({
   activeIndicator: {
     paddingHorizontal: theme.spacing.xs,
     paddingVertical: 2,
-    backgroundColor: theme.colors.system.success + '20',
     borderRadius: theme.borderRadius.sm,
   },
   searchBarContainer: {

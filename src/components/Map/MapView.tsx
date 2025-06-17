@@ -39,7 +39,7 @@ type LocationTrackingMode = 'None' | 'NoFollow' | 'Follow' | 'Face';
 const DEFAULT_TRACKING_MODE: LocationTrackingMode = 'NoFollow';
 
 const MapView: React.FC<MapViewProps> = ({stations}) => {
-  // 웹소켓 참조 변수
+  // 버스 위치 표시용 웹소켓 참조 변수 (지도 전용)
   const websocketRef = useRef<ReturnType<
     typeof createPassengerWebSocket
   > | null>(null);
@@ -147,7 +147,7 @@ const MapView: React.FC<MapViewProps> = ({stations}) => {
     }
   }, [stations, showToast]);
 
-  // 웹소켓 메시지 처리
+  // 웹소켓 메시지 처리 (지도 전용 - 버스 위치만)
   const handleWebSocketMessage = useCallback((data: any) => {
     try {
       if (typeof data === 'string') {
@@ -198,31 +198,33 @@ const MapView: React.FC<MapViewProps> = ({stations}) => {
     }
   }, []);
 
-  // 웹소켓 연결 설정
+  // 지도 전용 웹소켓 연결 설정 (버스 위치 표시만)
   useEffect(() => {
+    console.log('🗺️ [MapView] 지도 전용 웹소켓 연결 시작 (버스 위치 표시용)');
+    
     websocketRef.current = createPassengerWebSocket({
       onOpen: () => {
-        console.log('버스 위치 웹소켓 연결됨');
+        console.log('🗺️ [MapView] 지도용 웹소켓 연결됨');
       },
       onMessage: handleWebSocketMessage,
       onError: error => {
-        console.error('웹소켓 오류:', error);
-        showToast('실시간 버스 위치 정보를 받을 수 없습니다.', 'error');
+        console.error('🗺️ [MapView] 지도용 웹소켓 오류:', error);
       },
       onClose: () => {
-        console.log('버스 위치 웹소켓 연결 종료');
+        console.log('🗺️ [MapView] 지도용 웹소켓 연결 종료');
       },
     });
 
     websocketRef.current.connect('/ws/passenger');
 
     return () => {
+      console.log('🗺️ [MapView] 지도용 웹소켓 정리');
       if (websocketRef.current) {
         websocketRef.current.disconnect();
         websocketRef.current = null;
       }
     };
-  }, [handleWebSocketMessage, showToast]);
+  }, [handleWebSocketMessage]);
 
   // 초기화 - 권한 확인 후 데이터 로드
   useEffect(() => {

@@ -94,9 +94,7 @@ const EnterCodePage: React.FC = () => {
 
   // 코드 입력 핸들러
   const handleCodeChange = (text: string) => {
-    // 숫자만 허용
-    const alphanumericText = text.replace(/[^A-Za-z0-9]/g, '');
-    setSchoolCode(alphanumericText);
+    setSchoolCode(text);
 
     // 입력 시작하면 이전 상태 초기화
     if (validationStatus.message) {
@@ -134,7 +132,6 @@ const EnterCodePage: React.FC = () => {
                 value={schoolCode}
                 onChangeText={handleCodeChange}
                 placeholder="기관의 인증 코드를 입력하세요"
-                keyboardType="number-pad"
                 hint="관리자로부터 받은 기관 코드를 입력하세요."
                 error={
                   validationStatus.isValid === false

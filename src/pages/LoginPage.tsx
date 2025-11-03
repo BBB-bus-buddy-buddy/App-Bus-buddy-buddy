@@ -186,7 +186,7 @@ const LoginPage: React.FC<LoginPageProps> = ({onLoginSuccess}) => {
     <SafeAreaView style={styles.container}>
       <View style={styles.content}>
         <Image
-          source={require('../../assets/images/busIcon.png')}
+          source={require('../../assets/images/BBB_Logo_Nomark.png')}
           style={styles.busIcon}
           resizeMode="contain"
         />

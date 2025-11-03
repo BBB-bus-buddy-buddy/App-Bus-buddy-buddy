@@ -2,10 +2,6 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
-	<key>UIAppFonts</key>
-	<array>
-		<string>Ionicons.ttf</string>
-	</array>
 	<key>CFBundleDevelopmentRegion</key>
 	<string>ko</string>
 	<key>CFBundleDisplayName</key>
@@ -35,8 +31,6 @@
 		<key>NSAllowsArbitraryLoads</key>
 		<true/>
 	</dict>
-	<key>NSLocationWhenInUseUsageDescription</key>
-	<string>자동 탑승 감지를 위해 위치 권한이 필요합니다.</string>
 	<key>NSLocationAlwaysAndWhenInUseUsageDescription</key>
 	<string>앱이 닫혀 있을 때도 자동 탑승을 감지하기 위해 위치 권한이 필요합니다.</string>
 	<key>NSLocationAlwaysUsageDescription</key>
@@ -46,9 +40,17 @@
 		<key>YOUR-PURPOSE-KEY</key>
 		<string>정확한 탑승 위치 감지를 위해 정밀 위치 권한이 필요합니다.</string>
 	</dict>
+	<key>NSLocationWhenInUseUsageDescription</key>
+	<string>자동 탑승 감지를 위해 위치 권한이 필요합니다.</string>
+	<key>UIAppFonts</key>
+	<array>
+		<string>Ionicons.ttf</string>
+	</array>
 	<key>UIBackgroundModes</key>
 	<array>
 		<string>location</string>
+		<string>fetch</string>
+		<string>processing</string>
 	</array>
 	<key>UILaunchStoryboardName</key>
 	<string>LaunchScreen</string>

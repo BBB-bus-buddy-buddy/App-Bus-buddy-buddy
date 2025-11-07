@@ -22,6 +22,7 @@ const Ionicons = _Ionicons as unknown as React.ElementType;
 type RootStackParamList = {
   Login: undefined;
   Home: undefined;
+  Event: undefined;
 };
 
 interface UserData {
@@ -151,6 +152,13 @@ const MyPage: React.FC = () => {
       content: 'devhundeveloper@gmail.com',
       icon: 'mail',
       action: handleSendEmail,
+    },
+    {
+      id: 'mission',
+      title: '미션',
+      content: '이벤트 미션 확인하기',
+      icon: 'trophy',
+      action: () => navigation.navigate('Event'),
     },
     {
       id: 'withdrawal',

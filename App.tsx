@@ -21,6 +21,8 @@ import { ToastProvider } from './src/components/common/Toast';
 import RouteListPage from './src/pages/RouteListPage';
 import MyPage from './src/components/MyPage';
 import BusSchedulePage from './src/pages/BusSchedulePage';
+import EventPage from './src/pages/EventPage';
+import RewardDrawPage from './src/pages/RewardDrawPage';
 import { GlobalWebSocketProvider } from './src/providers/globalWebSocketProvider'; // 수정된 경로
 
 // 네비게이션 타입 정의
@@ -35,6 +37,8 @@ export type RootStackParamList = {
   RouteList: undefined;
   MyPage: undefined; // Added MyPage to the type definition
   BusSchedule: undefined; // Added BusSchedule to the type definition
+  Event: undefined; // 이벤트 페이지
+  RewardDraw: {eventId: string}; // 랜덤 뽑기 페이지
   Admin: undefined;
   AdminBusStation: undefined;
   AdminBusStationCreate: undefined;
@@ -84,6 +88,22 @@ const App = () => {
             <Stack.Screen name="BusList" component={BusListPage} />
             <Stack.Screen name="MyPage" component={MyPage} />
             <Stack.Screen name="BusSchedule" component={BusSchedulePage} />
+            <Stack.Screen
+              name="Event"
+              component={EventPage}
+              options={{
+                title: '이벤트',
+                headerShown: true,
+              }}
+            />
+            <Stack.Screen
+              name="RewardDraw"
+              component={RewardDrawPage}
+              options={{
+                title: '행운의 뽑기',
+                headerShown: false,
+              }}
+            />
             <Stack.Screen
               name="BusRoute"
               component={BusRoutePage}

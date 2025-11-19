@@ -1,5 +1,5 @@
 // src/api/services/eventService.tsx
-import apiClient, {ApiResponse} from '../apiClient';
+import apiClient from '../apiClient';
 
 /**
  * 이벤트 정보
@@ -64,7 +64,7 @@ export interface EventParticipation {
   eventId: string;
   userId: string;
   completedMissions: string[];
-  isEligibleForDraw: boolean; // 뽑기 자격 여부
+  eligibleForDraw: boolean; // 뽑기 자격 여부 (백엔드 필드명과 일치)
   hasDrawn: boolean; // 뽑기 완료 여부
   drawnReward: EventReward | null; // 당첨된 상품
   drawTimestamp: string | null;
@@ -92,28 +92,28 @@ export interface RewardDrawResponse {
  * 현재 진행 중인 이벤트 조회
  */
 export const getCurrentEvent = async (): Promise<Event> => {
-  const response = await apiClient.get<ApiResponse<Event>>('/api/event/current');
-  return response.data.data;
+  const response = await apiClient.get<Event>('/api/event/current');
+  return response.data;
 };
 
 /**
  * 이벤트 미션 목록 조회
  */
 export const getEventMissions = async (eventId: string): Promise<EventMission[]> => {
-  const response = await apiClient.get<ApiResponse<EventMission[]>>(
+  const response = await apiClient.get<EventMission[]>(
     `/api/event/${eventId}/missions`,
   );
-  return response.data.data;
+  return response.data;
 };
 
 /**
  * 이벤트 상품 목록 조회
  */
 export const getEventRewards = async (eventId: string): Promise<EventReward[]> => {
-  const response = await apiClient.get<ApiResponse<EventReward[]>>(
+  const response = await apiClient.get<EventReward[]>(
     `/api/event/${eventId}/rewards`,
   );
-  return response.data.data;
+  return response.data;
 };
 
 /**
@@ -122,29 +122,29 @@ export const getEventRewards = async (eventId: string): Promise<EventReward[]> =
 export const completeMission = async (
   request: MissionCompleteRequest,
 ): Promise<EventParticipation> => {
-  const response = await apiClient.post<ApiResponse<EventParticipation>>(
+  const response = await apiClient.post<EventParticipation>(
     '/api/event/complete-mission',
     request,
   );
-  return response.data.data;
+  return response.data;
 };
 
 /**
  * 랜덤 뽑기 실행
  */
 export const drawReward = async (eventId: string): Promise<RewardDrawResponse> => {
-  const response = await apiClient.post<ApiResponse<RewardDrawResponse>>(
+  const response = await apiClient.post<RewardDrawResponse>(
     `/api/event/${eventId}/draw-reward`,
   );
-  return response.data.data;
+  return response.data;
 };
 
 /**
  * 내 참여 현황 조회
  */
 export const getMyParticipation = async (eventId: string): Promise<EventParticipation> => {
-  const response = await apiClient.get<ApiResponse<EventParticipation>>(
+  const response = await apiClient.get<EventParticipation>(
     `/api/event/${eventId}/my-participation`,
   );
-  return response.data.data;
+  return response.data;
 };

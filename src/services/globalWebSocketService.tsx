@@ -114,6 +114,8 @@ class GlobalWebSocketService {
   };
   
   private onWebSocketMessage = (data: any) => {
+    console.log('📩 [GlobalWS] WebSocket 메시지 수신:', JSON.stringify(data));
+
     if (typeof data === 'object' && data !== null) {
       if (data.type === 'busUpdate' && data.data) {
         const busData: BusPosition = data.data;
@@ -132,11 +134,14 @@ class GlobalWebSocketService {
         return;
       }
       if (data.type === 'boarding_update') {
+        console.log('🚌 [GlobalWS] 탑승 업데이트 수신!', data);
         if (data.status === 'boarded' && data.data?.busNumber) {
           const busNumber = data.data.busNumber;
+          console.log(`✅ [GlobalWS] 탑승 인식: ${busNumber}`);
           this.showToast(`${busNumber} 버스 탑승이 감지되었습니다!`, 'success');
           useBoardingStore.getState().boardBus(busNumber);
         } else if (data.status === 'alighted') {
+          console.log('🚪 [GlobalWS] 하차 인식');
           this.showToast(`버스에서 하차했습니다.`, 'info');
           useBoardingStore.getState().alightBus();
         }
@@ -236,7 +241,9 @@ class GlobalWebSocketService {
         (error: GeolocationError) => {
           console.error(`❌ [GlobalWS] getCurrentPosition 오류 (코드 ${error.code}): ${error.message}`);
         },
-        { enableHighAccuracy: true, timeout: 5000, maximumAge: 1000 }
+        Platform.OS === 'android'
+          ? { enableHighAccuracy: true, timeout: 20000, maximumAge: 1000 } // Android: 타임아웃 증가
+          : { enableHighAccuracy: true, timeout: 5000, maximumAge: 1000 }
       );
     }, this.LOCATION_UPDATE_INTERVAL_MS);
   };

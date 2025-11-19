@@ -334,7 +334,8 @@ const RewardDrawPage: React.FC = () => {
               onPress={() => navigation.goBack()}
               variant="filled"
               isFullWidth
-              style={styles.completeButton}>
+              color={theme.colors.white}
+              textStyle={styles.completeButtonText}>
               확인
             </Button>
           </View>
@@ -363,18 +364,26 @@ const styles = StyleSheet.create({
   },
   header: {
     alignItems: 'center',
-    paddingTop: theme.spacing.xl,
+    paddingTop: theme.spacing.xxl,
+    paddingBottom: theme.spacing.md,
+    paddingHorizontal: theme.spacing.lg,
+    marginTop: theme.spacing.lg,
   },
   headerText: {
-    fontSize: theme.typography.heading.h1.fontSize,
+    fontSize: theme.typography.heading.h3.fontSize,
     fontWeight: theme.typography.fontWeight.bold as any,
     color: theme.colors.white,
     marginBottom: theme.spacing.sm,
+    textAlign: 'center',
+    includeFontPadding: false,
+    textAlignVertical: 'center',
   },
   subHeaderText: {
-    fontSize: theme.typography.text.lg.fontSize,
+    fontSize: 18,
     color: theme.colors.white,
     opacity: 0.9,
+    textAlign: 'center',
+    includeFontPadding: false,
   },
   boxContainer: {
     flex: 1,
@@ -437,7 +446,9 @@ const styles = StyleSheet.create({
   },
   rewardContainer: {
     alignItems: 'center',
-    paddingHorizontal: theme.spacing.xl,
+    paddingHorizontal: theme.spacing.lg,
+    width: '100%',
+    maxWidth: 400,
   },
   gradeBadge: {
     width: 100,
@@ -453,21 +464,22 @@ const styles = StyleSheet.create({
     elevation: 10,
   },
   gradeText: {
-    fontSize: theme.typography.heading.h2.fontSize,
+    fontSize: theme.typography.heading.h3.fontSize,
     fontWeight: theme.typography.fontWeight.bold as any,
     color: theme.colors.white,
   },
   congratsText: {
-    fontSize: theme.typography.heading.h1.fontSize,
+    fontSize: theme.typography.heading.h3.fontSize,
     fontWeight: theme.typography.fontWeight.bold as any,
     color: theme.colors.white,
     marginBottom: theme.spacing.lg,
     textAlign: 'center',
+    paddingHorizontal: theme.spacing.md,
   },
   rewardCard: {
     backgroundColor: theme.colors.white,
     borderRadius: theme.borderRadius.xl,
-    padding: theme.spacing.xl,
+    padding: theme.spacing.lg,
     alignItems: 'center',
     shadowColor: '#000',
     shadowOffset: {width: 0, height: 10},
@@ -475,26 +487,39 @@ const styles = StyleSheet.create({
     shadowRadius: 20,
     elevation: 10,
     width: '100%',
+    minHeight: 200,
   },
   rewardName: {
-    fontSize: theme.typography.heading.h2.fontSize,
+    fontSize: theme.typography.heading.h3.fontSize,
     fontWeight: theme.typography.fontWeight.bold as any,
     color: theme.colors.gray[900],
     marginTop: theme.spacing.md,
     marginBottom: theme.spacing.sm,
     textAlign: 'center',
+    flexWrap: 'wrap',
+    width: '100%',
   },
   rewardDescription: {
     fontSize: theme.typography.text.md.fontSize,
     color: theme.colors.gray[600],
     textAlign: 'center',
+    flexWrap: 'wrap',
+    width: '100%',
+    lineHeight: theme.typography.text.md.fontSize * 1.5,
   },
   footer: {
-    padding: theme.spacing.xl,
-    paddingBottom: theme.spacing.xxl,
+    padding: theme.spacing.lg,
+    paddingBottom: theme.spacing.xl,
+    paddingHorizontal: theme.spacing.xl,
   },
   completeButton: {
-    backgroundColor: theme.colors.white,
+    minHeight: 56,
+    paddingVertical: theme.spacing.md,
+  },
+  completeButtonText: {
+    color: theme.colors.primary.default,
+    fontSize: 18,
+    fontWeight: theme.typography.fontWeight.bold as any,
   },
 });
 

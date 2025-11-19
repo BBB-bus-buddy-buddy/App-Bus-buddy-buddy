@@ -8,6 +8,7 @@ import {
   ActivityIndicator,
   Linking,
   Image,
+  Alert,
 } from 'react-native';
 import {useNavigation} from '@react-navigation/native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -15,6 +16,8 @@ import {SafeAreaView} from 'react-native-safe-area-context';
 import InAppBrowser from 'react-native-inappbrowser-reborn';
 import axios from 'axios';
 import GoogleLogo from '../../assets/logos/google.svg';
+import AppleLogo from '../../assets/logos/apple.svg';
+import {appleAuth} from '@invertase/react-native-apple-authentication';
 
 interface LoginPageProps {
   onLoginSuccess?: () => void;
@@ -34,11 +37,11 @@ const API_BASE_URL = Platform.select({
   android: 'http://devse.kr:12589', // Android 에뮬레이터에서 localhost 접근용
 }) as string;
 
-const LOGIN_URL = `${API_BASE_URL}/oauth2/authorization/google`;
+const GOOGLE_LOGIN_URL = `${API_BASE_URL}/oauth2/authorization/google`;
 
 // 플랫폼별 앱 스킴 URL 설정 - 타입 assertion으로 string 타입 보장
 const APP_SCHEME_URL = Platform.select({
-  ios: 'org.reactjs.native.example.Busbuddybuddy:/oauth2callback',
+  ios: 'kr.devse.bbb.Busbuddybuddy:/oauth2callback',
   android: 'com.busbuddybuddy://oauth2callback',
 }) as string;
 
@@ -88,13 +91,20 @@ const LoginPage: React.FC<LoginPageProps> = ({onLoginSuccess}) => {
       const token = await AsyncStorage.getItem('token');
 
       if (token) {
-        const userRole = await fetchUserRole(token);
-        await handleRoleBasedNavigation(userRole);
+        try {
+          const userRole = await fetchUserRole(token);
+          await handleRoleBasedNavigation(userRole);
+        } catch (error) {
+          console.error('Token validation error:', error);
+          // 네트워크 에러 또는 토큰 만료 시 토큰 삭제하고 로그인 화면 유지
+          await AsyncStorage.removeItem('token');
+          // 로그인 화면에 그대로 유지됨
+        }
       }
+      // 토큰이 없으면 로그인 화면에 그대로 유지
     } catch (error) {
       console.error('Token check error:', error);
-      // 토큰이 유효하지 않은 경우 삭제
-      await AsyncStorage.removeItem('token');
+      // AsyncStorage 접근 실패 시에도 앱은 계속 실행
     } finally {
       setLoading(false);
     }
@@ -109,11 +119,19 @@ const LoginPage: React.FC<LoginPageProps> = ({onLoginSuccess}) => {
             Authorization: `Bearer ${token}`,
             'Content-Type': 'application/json',
           },
+          timeout: 10000, // 10초 타임아웃
         },
       );
       return response.data.data.role;
     } catch (error) {
       console.error('Role fetch error:', error);
+      if (axios.isAxiosError(error)) {
+        if (error.code === 'ECONNABORTED') {
+          console.error('Request timeout - server not responding');
+        } else if (error.code === 'ERR_NETWORK') {
+          console.error('Network error - cannot reach server');
+        }
+      }
       throw error;
     }
   };
@@ -134,7 +152,7 @@ const LoginPage: React.FC<LoginPageProps> = ({onLoginSuccess}) => {
     }
   };
 
-  const handleLogin = async () => {
+  const handleGoogleLogin = async () => {
     try {
       setLoading(true);
 
@@ -144,7 +162,7 @@ const LoginPage: React.FC<LoginPageProps> = ({onLoginSuccess}) => {
         // URL 리스너는 이미 useEffect에서 설정되어 있음
 
         const result = await InAppBrowser.openAuth(
-          LOGIN_URL,
+          GOOGLE_LOGIN_URL,
           APP_SCHEME_URL, // 플랫폼별 앱 스킴 URL 사용
           {
             ephemeralWebSession: false,
@@ -156,14 +174,99 @@ const LoginPage: React.FC<LoginPageProps> = ({onLoginSuccess}) => {
 
         if (result.type === 'success' && result.url) {
           await handleUrl(result.url);
+        } else if (result.type === 'cancel') {
+          console.log('User cancelled Google login');
         }
       } else {
-        await Linking.openURL(LOGIN_URL);
+        await Linking.openURL(GOOGLE_LOGIN_URL);
       }
     } catch (error) {
-      console.error('Login error:', error);
+      console.error('Google login error:', error);
+      // 에러 발생해도 앱은 계속 실행되어야 함
+      Alert.alert('로그인 실패', '구글 로그인에 실패했습니다. 다시 시도해주세요.');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleAppleLogin = async () => {
+    // iOS에서만 Sign in with Apple 사용 가능
+    if (Platform.OS !== 'ios') {
+      Alert.alert('알림', 'Sign in with Apple은 iOS에서만 사용 가능합니다.');
+      return;
+    }
+
+    try {
+      setLoading(true);
+
+      // Apple 로그인 요청
+      const appleAuthRequestResponse = await appleAuth.performRequest({
+        requestedOperation: appleAuth.Operation.LOGIN,
+        requestedScopes: [appleAuth.Scope.EMAIL, appleAuth.Scope.FULL_NAME],
+      });
+
+      // 자격 증명 상태 확인
+      const credentialState = await appleAuth.getCredentialStateForUser(
+        appleAuthRequestResponse.user,
+      );
+
+      if (credentialState === appleAuth.State.AUTHORIZED) {
+        // Apple에서 받은 identityToken을 백엔드로 전달
+        const {identityToken, user} = appleAuthRequestResponse;
+
+        if (identityToken) {
+          // 백엔드에 Apple 토큰 전달하여 인증 처리
+          await sendAppleTokenToBackend(identityToken, user);
+        } else {
+          throw new Error('Apple identity token is missing');
+        }
+      }
+    } catch (error: any) {
+      if (error.code === appleAuth.Error.CANCELED) {
+        console.log('User cancelled Apple Sign in');
+      } else {
+        console.error('Apple login error:', error);
+        Alert.alert(
+          '로그인 실패',
+          'Apple 로그인에 실패했습니다. 다시 시도해주세요.',
+        );
+      }
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const sendAppleTokenToBackend = async (
+    identityToken: string,
+    userId: string,
+  ) => {
+    try {
+      // 백엔드의 Apple OAuth 엔드포인트로 토큰 전송
+      const response = await axios.post(
+        `${API_BASE_URL}/api/auth/apple`,
+        {
+          identityToken,
+          userId,
+        },
+        {
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          timeout: 10000,
+        },
+      );
+
+      // 백엔드로부터 받은 JWT 토큰으로 로그인 처리
+      if (response.data && response.data.token) {
+        await handleLoginSuccess(response.data.token);
+      } else if (response.data && response.data.data && response.data.data.token) {
+        await handleLoginSuccess(response.data.data.token);
+      } else {
+        throw new Error('No token received from backend');
+      }
+    } catch (error) {
+      console.error('Failed to send Apple token to backend:', error);
+      throw error;
     }
   };
 
@@ -173,8 +276,14 @@ const LoginPage: React.FC<LoginPageProps> = ({onLoginSuccess}) => {
       onLoginSuccess?.();
 
       // 로그인 성공 후 역할 확인 및 라우팅
-      const userRole = await fetchUserRole(token);
-      await handleRoleBasedNavigation(userRole);
+      try {
+        const userRole = await fetchUserRole(token);
+        await handleRoleBasedNavigation(userRole);
+      } catch (error) {
+        console.error('Role fetch failed after login:', error);
+        // 역할 조회 실패 시 토큰 삭제하고 로그인 화면 유지
+        await AsyncStorage.removeItem('token');
+      }
     } catch (error) {
       console.error('Login success handling error:', error);
       // 에러 발생 시 토큰 삭제
@@ -198,9 +307,21 @@ const LoginPage: React.FC<LoginPageProps> = ({onLoginSuccess}) => {
           </View>
         ) : (
           <View style={styles.loginButtons}>
+            {Platform.OS === 'ios' && (
+              <TouchableOpacity
+                style={styles.button}
+                onPress={handleAppleLogin}
+                activeOpacity={0.8}
+                disabled={loading}>
+                <AppleLogo style={styles.logo} width={20} height={20} />
+                <Text style={styles.buttonText}>
+                  Apple로 로그인
+                </Text>
+              </TouchableOpacity>
+            )}
             <TouchableOpacity
               style={styles.button}
-              onPress={handleLogin}
+              onPress={handleGoogleLogin}
               activeOpacity={0.8}
               disabled={loading}>
               <GoogleLogo style={styles.logo} width={20} height={20} />
@@ -275,6 +396,9 @@ const styles = StyleSheet.create({
   loadingContainer: {
     justifyContent: 'center',
     alignItems: 'center',
+  },
+  appleButtonText: {
+    color: '#FFFFFF',
   },
 });
 

@@ -116,7 +116,7 @@ export class WebSocketWrapper {
 
   // 승객 위치 정보 전송 (자동 탑승 감지용, 백엔드 형식에 맞춤)
   public sendLocationUpdate(locationData: PassengerLocationDTO): void {
-    this.send({
+    const payload = {
       type: 'location',
       organizationId: locationData.organizationId,
       data: {
@@ -125,7 +125,9 @@ export class WebSocketWrapper {
         longitude: locationData.longitude,
         timestamp: locationData.timestamp,
       },
-    });
+    };
+    console.log('📤 [WebSocket] 위치 데이터 전송:', JSON.stringify(payload));
+    this.send(payload);
   }
 
 

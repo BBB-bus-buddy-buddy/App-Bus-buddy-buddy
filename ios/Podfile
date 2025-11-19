@@ -37,5 +37,23 @@ target 'Busbuddybuddy' do
       config[:reactNativePath],
       :mac_catalyst_enabled => false,
     )
+
+    # dSYM 누락 문제 해결: 모든 타겟에 대해 dSYM 생성 비활성화
+    installer.pods_project.targets.each do |target|
+      target.build_configurations.each do |config|
+        config.build_settings['DEBUG_INFORMATION_FORMAT'] = 'dwarf'
+        config.build_settings['COPY_PHASE_STRIP'] = 'NO'
+        config.build_settings['STRIP_INSTALLED_PRODUCT'] = 'NO'
+      end
+    end
+
+    # 메인 프로젝트에도 동일 설정 적용
+    installer.generated_projects.each do |project|
+      project.targets.each do |target|
+        target.build_configurations.each do |config|
+          config.build_settings['DEBUG_INFORMATION_FORMAT'] = 'dwarf'
+        end
+      end
+    end
   end
 end

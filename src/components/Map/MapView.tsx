@@ -8,8 +8,10 @@ import {
 import Geolocation from '@react-native-community/geolocation';
 import {
   Camera,
+  CameraChangeReason,
   NaverMapMarkerOverlay,
   NaverMapView,
+  Region,
 } from '@mj-studio/react-native-naver-map';
 import {request, PERMISSIONS, RESULTS} from 'react-native-permissions';
 
@@ -45,16 +47,48 @@ const MapView: React.FC<MapViewProps> = ({stations}) => {
 
   const busPositions = useBusStore(state => state.busPositions);
   const {isBoarded, boardedBusNumber} = useBoardingStore();
-  const [camera, setCamera] = useState<Camera>(DEFAULT_CAMERA);
+
+  // 선택된 정류장 및 위치 정보 전역 상태 관리 (먼저 선언)
+  const {
+    selectedStation,
+    setSelectedStation,
+    currentLocation: storedCurrentLocation,
+    setCurrentLocation: setStoredCurrentLocation,
+  } = useSelectedStationStore();
+
+  // 초기 카메라 위치 설정: 정류장 > 현재 위치 > 기본값(서울) 순서로 우선순위
+  const getInitialCamera = (): Camera => {
+    if (selectedStation && selectedStation.location) {
+      return {
+        latitude: selectedStation.location.x,
+        longitude: selectedStation.location.y,
+        zoom: 17,
+      };
+    }
+    if (storedCurrentLocation) {
+      return {
+        latitude: storedCurrentLocation.latitude,
+        longitude: storedCurrentLocation.longitude,
+        zoom: 15,
+      };
+    }
+    return DEFAULT_CAMERA;
+  };
+
+  const [camera, setCamera] = useState<Camera>(getInitialCamera());
   const [isMapReady, setIsMapReady] = useState(false);
   const [, setLocationTrackingMode] =
     useState<LocationTrackingMode>(DEFAULT_TRACKING_MODE);
   const [hasLocationPermission, setHasLocationPermission] = useState(false);
   const [isInitialLoad, setIsInitialLoad] = useState(true);
 
-  // 선택된 정류장 전역 상태 관리
-  const {selectedStation, setSelectedStation} = useSelectedStationStore();
   const {showToast} = useToast();
+
+  // 로컬 currentLocation state (실시간 업데이트용)
+  const [currentLocation, setCurrentLocation] = useState<{
+    latitude: number;
+    longitude: number;
+  } | null>(storedCurrentLocation);
 
     const boardedBus = isBoarded
     ? busPositions.find(bus => bus.busNumber === boardedBusNumber)
@@ -125,11 +159,24 @@ const MapView: React.FC<MapViewProps> = ({stations}) => {
 
   // 초기 위치로 카메라 설정
   const initializeCamera = useCallback(() => {
+    console.log('[initializeCamera] 초기화 시작');
+    console.log('[initializeCamera] selectedStation:', selectedStation);
+    console.log('[initializeCamera] storedCurrentLocation:', storedCurrentLocation);
+
+    // 저장된 정류장이나 위치가 있으면 초기화 건너뛰기
+    if (selectedStation || storedCurrentLocation) {
+      console.log('[initializeCamera] 저장된 위치가 있어 초기화 건너뜀');
+      setIsInitialLoad(false);
+      return;
+    }
+
     if (hasLocationPermission) {
       Geolocation.getCurrentPosition(
         position => {
           const {latitude, longitude} = position.coords;
+          setCurrentLocation({latitude, longitude}); // 현재 위치 저장
           if (!selectedStation && isInitialLoad) {
+            console.log('[initializeCamera] 현재 위치로 카메라 설정');
             setCamera({latitude, longitude, zoom: 15});
             setIsInitialLoad(false);
             setTrackingMode();
@@ -139,16 +186,28 @@ const MapView: React.FC<MapViewProps> = ({stations}) => {
           console.error('초기 위치 설정 오류:', error);
           setCamera(DEFAULT_CAMERA);
         },
-        {
-          enableHighAccuracy: false,
-          timeout: 3000,
-          maximumAge: 10000,
-        },
+        Platform.OS === 'android'
+          ? {
+              enableHighAccuracy: true,
+              timeout: 20000, // Android: 20초로 증가
+              maximumAge: 1000, // Android: 캐시를 거의 사용하지 않음
+            }
+          : {
+              enableHighAccuracy: false,
+              timeout: 3000,
+              maximumAge: 10000,
+            },
       );
     } else {
       setCamera(DEFAULT_CAMERA);
     }
-  }, [hasLocationPermission, setTrackingMode, selectedStation, isInitialLoad]);
+  }, [
+    hasLocationPermission,
+    setTrackingMode,
+    selectedStation,
+    isInitialLoad,
+    storedCurrentLocation,
+  ]);
 
   // 정류장 데이터 불러오기
   const fetchStations = useCallback(async () => {
@@ -183,6 +242,13 @@ const MapView: React.FC<MapViewProps> = ({stations}) => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  // currentLocation 변경 시 전역 스토어에 저장
+  useEffect(() => {
+    if (currentLocation) {
+      setStoredCurrentLocation(currentLocation);
+    }
+  }, [currentLocation, setStoredCurrentLocation]);
+
   // 권한 상태 변경시 카메라 재설정
   useEffect(() => {
     if (hasLocationPermission && isMapReady) {
@@ -190,34 +256,103 @@ const MapView: React.FC<MapViewProps> = ({stations}) => {
     }
   }, [hasLocationPermission, isMapReady, initializeCamera]);
 
+  // 위치 주기적 업데이트 (10초마다)
+  useEffect(() => {
+    if (!hasLocationPermission) return;
+
+    const locationUpdateInterval = setInterval(() => {
+      Geolocation.getCurrentPosition(
+        position => {
+          const {latitude, longitude} = position.coords;
+          setCurrentLocation({latitude, longitude});
+        },
+        error => {
+          console.error('위치 업데이트 오류:', error);
+        },
+        Platform.OS === 'android'
+          ? {
+              enableHighAccuracy: true,
+              timeout: 20000,
+              maximumAge: 1000,
+            }
+          : {
+              enableHighAccuracy: true,
+              timeout: 5000,
+              maximumAge: 1000,
+            },
+      );
+    }, 10000); // 10초마다 업데이트
+
+    return () => clearInterval(locationUpdateInterval);
+  }, [hasLocationPermission]);
+
   // 내 위치로 이동
   const moveToMyLocation = useCallback(async () => {
+    console.log('[moveToMyLocation] 시작');
+
     if (!hasLocationPermission) {
+      console.log('[moveToMyLocation] 권한 없음, 요청 중...');
       const granted = await requestLocationPermission();
-      if (!granted) return;
+      if (!granted) {
+        console.log('[moveToMyLocation] 권한 거부됨');
+        return;
+      }
     }
 
-    Geolocation.getCurrentPosition(
-      position => {
-        const {latitude, longitude} = position.coords;
-        setSelectedStation(null);
-        setCamera({
-          latitude,
-          longitude,
-          zoom: 15,
-        });
-        setTrackingMode();
-      },
-      error => {
-        console.error('위치 정보 오류:', error);
-        showToast('현재 위치를 가져올 수 없습니다.', 'error');
-      },
-      {
-        enableHighAccuracy: true,
-        timeout: 5000,
-        maximumAge: 0,
-      },
-    );
+    return new Promise<void>((resolve, reject) => {
+      console.log(
+        `[moveToMyLocation] getCurrentPosition 호출 (Platform: ${Platform.OS})`,
+      );
+
+      Geolocation.getCurrentPosition(
+        position => {
+          const {latitude, longitude} = position.coords;
+          console.log(
+            `[moveToMyLocation] 위치 가져오기 성공: ${latitude}, ${longitude}`,
+          );
+
+          setCurrentLocation({latitude, longitude}); // 현재 위치 업데이트
+          setSelectedStation(null);
+
+          // Android에서는 ref를 통한 직접 카메라 이동이 더 안정적
+          if (Platform.OS === 'android' && naverMapRef.current) {
+            console.log('[moveToMyLocation] Android - animateCameraTo 사용');
+            naverMapRef.current.animateCameraTo({
+              latitude,
+              longitude,
+              zoom: 15,
+            });
+          } else {
+            setCamera({
+              latitude,
+              longitude,
+              zoom: 15,
+            });
+          }
+          setTrackingMode();
+          resolve();
+        },
+        error => {
+          console.error(
+            `[moveToMyLocation] 위치 정보 오류 (코드 ${error.code}):`,
+            error.message,
+          );
+          showToast('현재 위치를 가져올 수 없습니다.', 'error');
+          reject(error);
+        },
+        Platform.OS === 'android'
+          ? {
+              enableHighAccuracy: true,
+              timeout: 20000, // Android: 20초로 증가
+              maximumAge: 1000, // Android: 신선한 위치 정보 사용
+            }
+          : {
+              enableHighAccuracy: true,
+              timeout: 5000,
+              maximumAge: 0,
+            },
+      );
+    });
   }, [
     hasLocationPermission,
     requestLocationPermission,
@@ -229,37 +364,96 @@ const MapView: React.FC<MapViewProps> = ({stations}) => {
   // 선택된 정류장이 변경되면 카메라 이동
   useEffect(() => {
     if (selectedStation && selectedStation.location) {
-      setCamera({
-        latitude: selectedStation.location.x,
-        longitude: selectedStation.location.y,
-        zoom: 17,
-      });
-    } else {
-      setTrackingMode();
-      moveToMyLocation();
+      console.log('[useEffect] 정류장 선택됨:', selectedStation.name);
+
+      // Android에서는 ref를 통한 직접 카메라 이동
+      if (Platform.OS === 'android' && naverMapRef.current) {
+        console.log('[useEffect] Android - animateCameraTo 사용');
+        naverMapRef.current.animateCameraTo({
+          latitude: selectedStation.location.x,
+          longitude: selectedStation.location.y,
+          zoom: 17,
+        });
+      } else {
+        setCamera({
+          latitude: selectedStation.location.x,
+          longitude: selectedStation.location.y,
+          zoom: 17,
+        });
+      }
     }
-  }, [moveToMyLocation, selectedStation, setTrackingMode]);
+    // else if 제거: selectedStation이 null로 바뀔 때마다 내 위치로 이동하는 것을 방지
+    // 뒤로가기는 별도 로직에서 처리 (아래 useEffect 참조)
+  }, [selectedStation]);
+
+  // 정류장 선택 해제 시 내 위치로 복귀 (뒤로가기 전용)
+  const previousSelectedStation = useRef(selectedStation);
+  useEffect(() => {
+    // 정류장이 있었다가 null로 바뀐 경우만 (진짜 뒤로가기)
+    if (previousSelectedStation.current && !selectedStation && currentLocation) {
+      console.log('[useEffect] 뒤로가기 감지, 내 위치로 복귀');
+
+      if (Platform.OS === 'android' && naverMapRef.current) {
+        naverMapRef.current.animateCameraTo({
+          latitude: currentLocation.latitude,
+          longitude: currentLocation.longitude,
+          zoom: 15,
+        });
+      } else {
+        setCamera({
+          latitude: currentLocation.latitude,
+          longitude: currentLocation.longitude,
+          zoom: 15,
+        });
+      }
+      setTrackingMode();
+    }
+    previousSelectedStation.current = selectedStation;
+  }, [selectedStation, currentLocation, setTrackingMode]);
 
   // 위치 버튼 클릭 핸들러
-  const handleLocationButtonClick = useCallback(() => {
+  const handleLocationButtonClick = useCallback(async () => {
+    console.log('[위치 버튼] 클릭됨');
+
     if (!hasLocationPermission) {
-      requestLocationPermission().then(granted => {
-        if (granted) {
-          setSelectedStation(null);
-          moveToMyLocation();
-          setTrackingMode();
-        } else {
-          showToast('위치 추적을 위해 위치 권한이 필요합니다.', 'warning');
-        }
-      });
-      return;
-    } else {
-      setSelectedStation(null);
-      moveToMyLocation();
+      console.log('[위치 버튼] 권한 없음, 요청 중...');
+      const granted = await requestLocationPermission();
+      if (!granted) {
+        showToast('위치 추적을 위해 위치 권한이 필요합니다.', 'warning');
+        return;
+      }
+    }
+
+    setSelectedStation(null);
+
+    // 이미 저장된 위치가 있으면 바로 이동
+    if (currentLocation) {
+      console.log('[위치 버튼] 저장된 위치로 이동:', currentLocation);
+
+      // Android에서는 ref를 통한 직접 카메라 이동이 더 안정적
+      if (Platform.OS === 'android' && naverMapRef.current) {
+        console.log('[위치 버튼] Android - animateCameraTo 사용');
+        naverMapRef.current.animateCameraTo({
+          latitude: currentLocation.latitude,
+          longitude: currentLocation.longitude,
+          zoom: 15,
+        });
+      } else {
+        setCamera({
+          latitude: currentLocation.latitude,
+          longitude: currentLocation.longitude,
+          zoom: 15,
+        });
+      }
       setTrackingMode();
+    } else {
+      console.log('[위치 버튼] 새로운 위치 가져오는 중...');
+      // 위치가 없으면 새로 가져오기
+      await moveToMyLocation();
     }
   }, [
     hasLocationPermission,
+    currentLocation,
     setSelectedStation,
     moveToMyLocation,
     setTrackingMode,
@@ -271,6 +465,23 @@ const MapView: React.FC<MapViewProps> = ({stations}) => {
   const handleMapReady = useCallback(() => {
     setIsMapReady(true);
   }, []);
+
+  // 카메라 변경 핸들러 - 사용자가 드래그하면 추적 모드 해제
+  const handleCameraChanged = useCallback(
+    (params: Camera & {reason: CameraChangeReason; region: Region}) => {
+      // reason: Gesture (사용자가 직접 드래그/줌)
+      // reason: Developer (코드로 카메라 이동)
+      // reason: Location (위치 추적 모드)
+      if (params.reason === 'Gesture') {
+        // 사용자가 직접 지도를 조작한 경우 추적 모드 해제
+        if (naverMapRef.current && naverMapRef.current.setLocationTrackingMode) {
+          naverMapRef.current.setLocationTrackingMode('NoFollow');
+        }
+        setLocationTrackingMode('NoFollow');
+      }
+    },
+    [],
+  );
 
   // 초기 로딩
   if (!isMapReady && stationPositions.length === 0) {
@@ -298,6 +509,21 @@ const MapView: React.FC<MapViewProps> = ({stations}) => {
         isShowLocationButton={false} // 커스텀 위치 버튼 사용
         isLiteModeEnabled={false}
         onInitialized={handleMapReady}
+        onCameraChanged={handleCameraChanged}
+        locationOverlay={
+          currentLocation
+            ? {
+                isVisible: true,
+                position: currentLocation,
+                circleRadius: 15,
+                circleColor: 0x4287f5, // 파란색
+                circleOutlineWidth: 2,
+                circleOutlineColor: 0xffffff, // 흰색 테두리
+              }
+            : {
+                isVisible: false,
+              }
+        }
         layerGroups={{
           TRANSIT: true,
           BUILDING: true,

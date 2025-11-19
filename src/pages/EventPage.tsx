@@ -1,4 +1,4 @@
-import React, {useState, useEffect} from 'react';
+import React, {useState, useEffect, useRef} from 'react';
 import {
   View,
   StyleSheet,
@@ -6,7 +6,7 @@ import {
   ActivityIndicator
 } from 'react-native';
 import {SafeAreaView} from 'react-native-safe-area-context';
-import {useNavigation} from '@react-navigation/native';
+import {useNavigation, useFocusEffect} from '@react-navigation/native';
 import {NativeStackNavigationProp} from '@react-navigation/native-stack';
 import Text from '../components/common/Text';
 import Button from '../components/common/Button';
@@ -53,20 +53,37 @@ const EventPage: React.FC = () => {
   // 탑승 상태 (미션 완료 자동 감지용)
   const {boardedBusNumber, isBoarded} = useBoardingStore();
 
-  // 데이터 로드
+  // 미션 완료 처리 중 여부 추적
+  const isCompletingMission = useRef(false);
+
+  // 데이터 로드 (초기)
   useEffect(() => {
     loadEventData();
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  // 화면 포커스 시 데이터 새로고침
+  useFocusEffect(
+    React.useCallback(() => {
+      loadEventData();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [])
+  );
+
   // 탑승 상태 변경 감지 (자동 미션 완료)
   useEffect(() => {
-    if (isBoarded && currentEvent) {
-      // AUTO_DETECT_BOARDING 미션 자동 완료
-      autoCompleteBoardingMission();
+    if (isBoarded && currentEvent && missions.length > 0 && !isCompletingMission.current) {
+      // AUTO_DETECT_BOARDING 미션이 아직 완료되지 않았는지 확인
+      const boardingMission = missions.find(
+        m => m.missionType === MissionType.AUTO_DETECT_BOARDING && !m.isCompleted,
+      );
+
+      if (boardingMission) {
+        autoCompleteBoardingMission();
+      }
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isBoarded, currentEvent]);
+  }, [isBoarded, missions]);
 
   const loadEventData = async () => {
     try {
@@ -74,6 +91,15 @@ const EventPage: React.FC = () => {
 
       // 현재 이벤트 조회
       const event = await getCurrentEvent();
+
+      // 이벤트가 없는 경우 처리
+      if (!event || !event.id) {
+        console.error('이벤트 데이터가 없습니다:', event);
+        showToast('진행 중인 이벤트가 없습니다.', 'info');
+        setIsLoading(false);
+        return;
+      }
+
       setCurrentEvent(event);
 
       // 미션 목록 조회
@@ -86,6 +112,10 @@ const EventPage: React.FC = () => {
 
       // 내 참여 현황 조회
       const myParticipation = await getMyParticipation(event.id);
+      console.log('📊 참여 현황 데이터:', myParticipation);
+      console.log('✅ 완료된 미션 수:', myParticipation?.completedMissions?.length);
+      console.log('🎫 뽑기 자격:', myParticipation?.eligibleForDraw);
+      console.log('🎲 뽑기 완료 여부:', myParticipation?.hasDrawn);
       setParticipation(myParticipation);
     } catch (error: any) {
       console.error('이벤트 데이터 로드 실패:', error);
@@ -97,7 +127,14 @@ const EventPage: React.FC = () => {
 
   // 자동 승하차 미션 완료
   const autoCompleteBoardingMission = async () => {
+    // 이미 처리 중이면 중복 실행 방지
+    if (isCompletingMission.current) {
+      return;
+    }
+
     try {
+      isCompletingMission.current = true;
+
       const boardingMission = missions.find(
         m => m.missionType === MissionType.AUTO_DETECT_BOARDING && !m.isCompleted,
       );
@@ -109,10 +146,20 @@ const EventPage: React.FC = () => {
           targetValue: boardedBusNumber || '',
         });
         showToast('✅ 자동 승하차 감지 미션 완료!', 'success');
-        loadEventData(); // 새로고침
+
+        // 미션과 참여 현황만 업데이트 (currentEvent는 변경하지 않음)
+        const missionList = await getEventMissions(currentEvent.id);
+        setMissions(missionList);
+
+        const myParticipation = await getMyParticipation(currentEvent.id);
+        setParticipation(myParticipation);
       }
     } catch (error: any) {
       console.error('자동 미션 완료 실패:', error);
+      showToast(error.message || '미션 완료 처리 실패', 'error');
+    } finally {
+      // 처리 완료 후 플래그 해제
+      isCompletingMission.current = false;
     }
   };
 
@@ -120,7 +167,7 @@ const EventPage: React.FC = () => {
   const handleDrawReward = () => {
     if (!currentEvent) return;
 
-    if (!participation?.isEligibleForDraw) {
+    if (!participation?.eligibleForDraw) {
       showToast('모든 필수 미션을 완료해주세요!', 'warning');
       return;
     }
@@ -179,11 +226,22 @@ const EventPage: React.FC = () => {
 
   return (
     <SafeAreaView style={styles.container}>
-      <ScrollView style={styles.scrollView}>
+      <ScrollView>
         {/* 헤더 */}
         <View style={styles.header}>
-          <Text style={styles.title}>{currentEvent.name}</Text>
-          <Text style={styles.description}>{currentEvent.description}</Text>
+          <View style={styles.headerContent}>
+            <View style={styles.headerTextContainer}>
+              <Text style={styles.title}>{currentEvent.name}</Text>
+              <Text style={styles.description}>{currentEvent.description}</Text>
+            </View>
+            <Button
+              onPress={loadEventData}
+              variant="text"
+              size="small"
+              style={styles.refreshButton}>
+              <Ionicons name="refresh" size={24} color={theme.colors.primary.default} />
+            </Button>
+          </View>
         </View>
 
         {/* 참여 현황 카드 */}
@@ -204,9 +262,9 @@ const EventPage: React.FC = () => {
               <Text
                 style={[
                   styles.statValue,
-                  {color: participation?.isEligibleForDraw ? theme.colors.system.success : theme.colors.gray[400]},
+                  {color: participation?.eligibleForDraw ? theme.colors.system.success : theme.colors.gray[400]},
                 ]}>
-                {participation?.isEligibleForDraw ? '가능' : '불가능'}
+                {participation?.eligibleForDraw ? '가능' : '불가능'}
               </Text>
               <Text style={styles.statLabel}>뽑기 자격</Text>
             </View>
@@ -228,9 +286,17 @@ const EventPage: React.FC = () => {
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>📋 미션 목록</Text>
           {missions.map((mission) => (
-            <Card key={mission.id} style={styles.missionCard}>
+            <Card
+              key={mission.id}
+              style={[
+                styles.missionCard,
+                mission.isCompleted && styles.missionCardCompleted
+              ]}>
               <View style={styles.missionHeader}>
-                <View style={styles.missionIconContainer}>
+                <View style={[
+                  styles.missionIconContainer,
+                  mission.isCompleted && styles.missionIconContainerCompleted
+                ]}>
                   <Ionicons
                     name={getMissionIcon(mission.missionType)}
                     size={24}
@@ -238,11 +304,24 @@ const EventPage: React.FC = () => {
                   />
                 </View>
                 <View style={styles.missionInfo}>
-                  <Text style={styles.missionTitle}>
-                    {mission.isRequired && <Text style={styles.requiredBadge}>필수 </Text>}
-                    {mission.title}
-                  </Text>
-                  <Text style={styles.missionDescription}>{mission.description}</Text>
+                  <View style={styles.missionTitleRow}>
+                    <Text style={[
+                      styles.missionTitle,
+                      mission.isCompleted && styles.missionTitleCompleted
+                    ]}>
+                      {mission.isRequired && <Text style={styles.requiredBadge}>필수 </Text>}
+                      {mission.title}
+                    </Text>
+                    {mission.isCompleted && (
+                      <View style={styles.completedBadge}>
+                        <Text style={styles.completedBadgeText}>완료</Text>
+                      </View>
+                    )}
+                  </View>
+                  <Text style={[
+                    styles.missionDescription,
+                    mission.isCompleted && styles.missionDescriptionCompleted
+                  ]}>{mission.description}</Text>
                 </View>
                 {mission.isCompleted && (
                   <Ionicons name="checkmark-circle" size={28} color={theme.colors.system.success} />
@@ -284,12 +363,12 @@ const EventPage: React.FC = () => {
         <View style={styles.footer}>
           <Button
             onPress={handleDrawReward}
-            disabled={!participation?.isEligibleForDraw || participation?.hasDrawn}
-            variant={participation?.isEligibleForDraw && !participation?.hasDrawn ? 'filled' : 'tonal'}
+            disabled={!participation?.eligibleForDraw || participation?.hasDrawn}
+            variant={participation?.eligibleForDraw && !participation?.hasDrawn ? 'filled' : 'tonal'}
             isFullWidth>
             {participation?.hasDrawn
               ? '이미 뽑기 완료'
-              : participation?.isEligibleForDraw
+              : participation?.eligibleForDraw
               ? '🎲 행운의 뽑기 시작!'
               : '미션을 완료해주세요'}
           </Button>
@@ -303,9 +382,6 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: theme.colors.gray[50],
-  },
-  scrollView: {
-    flex: 1,
   },
   loadingContainer: {
     flex: 1,
@@ -333,8 +409,20 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: theme.colors.gray[200],
   },
+  headerContent: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    justifyContent: 'space-between',
+  },
+  headerTextContainer: {
+    flex: 1,
+  },
+  refreshButton: {
+    marginLeft: theme.spacing.sm,
+    padding: theme.spacing.xs,
+  },
   title: {
-    fontSize: theme.typography.heading.h2.fontSize,
+    fontSize: theme.typography.heading.h3.fontSize,
     fontWeight: theme.typography.fontWeight.bold as any,
     color: theme.colors.gray[900],
     marginBottom: theme.spacing.sm,
@@ -406,6 +494,11 @@ const styles = StyleSheet.create({
   missionCard: {
     marginBottom: theme.spacing.sm,
   },
+  missionCardCompleted: {
+    backgroundColor: theme.colors.system.success + '08',
+    borderLeftWidth: 4,
+    borderLeftColor: theme.colors.system.success,
+  },
   missionHeader: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -419,13 +512,36 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginRight: theme.spacing.md,
   },
+  missionIconContainerCompleted: {
+    backgroundColor: theme.colors.system.success + '20',
+  },
   missionInfo: {
     flex: 1,
+  },
+  missionTitleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: theme.spacing.xs,
   },
   missionTitle: {
     fontSize: theme.typography.text.md.fontSize,
     fontWeight: theme.typography.fontWeight.semiBold as any,
-    marginBottom: theme.spacing.xs,
+    flex: 1,
+  },
+  missionTitleCompleted: {
+    color: theme.colors.gray[500],
+  },
+  completedBadge: {
+    backgroundColor: theme.colors.system.success,
+    paddingHorizontal: theme.spacing.sm,
+    paddingVertical: theme.spacing.xs / 2,
+    borderRadius: theme.borderRadius.sm,
+    marginLeft: theme.spacing.xs,
+  },
+  completedBadgeText: {
+    fontSize: theme.typography.text.xs.fontSize,
+    fontWeight: theme.typography.fontWeight.bold as any,
+    color: theme.colors.white,
   },
   requiredBadge: {
     color: theme.colors.system.error,
@@ -434,6 +550,9 @@ const styles = StyleSheet.create({
   missionDescription: {
     fontSize: theme.typography.text.sm.fontSize,
     color: theme.colors.gray[600],
+  },
+  missionDescriptionCompleted: {
+    color: theme.colors.gray[400],
   },
   rewardCard: {
     marginBottom: theme.spacing.sm,

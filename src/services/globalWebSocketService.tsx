@@ -240,10 +240,11 @@ class GlobalWebSocketService {
         this.handleLocationUpdate, // 성공 시 전송
         (error: GeolocationError) => {
           console.error(`❌ [GlobalWS] getCurrentPosition 오류 (코드 ${error.code}): ${error.message}`);
+          console.error('❌ [GlobalWS] PERMISSION_DENIED=1, POSITION_UNAVAILABLE=2, TIMEOUT=3');
         },
         Platform.OS === 'android'
-          ? { enableHighAccuracy: true, timeout: 20000, maximumAge: 1000 } // Android: 타임아웃 증가
-          : { enableHighAccuracy: true, timeout: 5000, maximumAge: 1000 }
+          ? { enableHighAccuracy: false, timeout: 30000, maximumAge: 10000 } // 네트워크 기반 위치
+          : { enableHighAccuracy: false, timeout: 5000, maximumAge: 10000 }
       );
     }, this.LOCATION_UPDATE_INTERVAL_MS);
   };

@@ -183,14 +183,16 @@ const MapView: React.FC<MapViewProps> = ({stations}) => {
           }
         },
         error => {
-          console.error('초기 위치 설정 오류:', error);
+          console.error(`[initializeCamera] 위치 오류 (코드 ${error.code}):`, error.message);
+          console.error('[initializeCamera] PERMISSION_DENIED=1, POSITION_UNAVAILABLE=2, TIMEOUT=3');
+          showToast(`위치를 가져올 수 없습니다 (오류 ${error.code})`, 'error');
           setCamera(DEFAULT_CAMERA);
         },
         Platform.OS === 'android'
           ? {
-              enableHighAccuracy: true,
-              timeout: 20000, // Android: 20초로 증가
-              maximumAge: 1000, // Android: 캐시를 거의 사용하지 않음
+              enableHighAccuracy: false, // 네트워크 기반 위치 사용 (더 빠름)
+              timeout: 30000, // Android: 30초로 증가
+              maximumAge: 10000, // 10초 이내 캐시 사용
             }
           : {
               enableHighAccuracy: false,
@@ -267,18 +269,18 @@ const MapView: React.FC<MapViewProps> = ({stations}) => {
           setCurrentLocation({latitude, longitude});
         },
         error => {
-          console.error('위치 업데이트 오류:', error);
+          console.error(`[위치 업데이트] 오류 (코드 ${error.code}):`, error.message);
         },
         Platform.OS === 'android'
           ? {
-              enableHighAccuracy: true,
-              timeout: 20000,
-              maximumAge: 1000,
+              enableHighAccuracy: false, // 네트워크 기반 위치
+              timeout: 30000,
+              maximumAge: 10000,
             }
           : {
-              enableHighAccuracy: true,
+              enableHighAccuracy: false,
               timeout: 5000,
-              maximumAge: 1000,
+              maximumAge: 10000,
             },
       );
     }, 10000); // 10초마다 업데이트
@@ -337,19 +339,25 @@ const MapView: React.FC<MapViewProps> = ({stations}) => {
             `[moveToMyLocation] 위치 정보 오류 (코드 ${error.code}):`,
             error.message,
           );
-          showToast('현재 위치를 가져올 수 없습니다.', 'error');
+          console.error('[moveToMyLocation] PERMISSION_DENIED=1, POSITION_UNAVAILABLE=2, TIMEOUT=3');
+          const errorMessages = {
+            1: '위치 권한이 거부되었습니다',
+            2: '위치를 확인할 수 없습니다. GPS를 켜주세요',
+            3: '위치 확인 시간이 초과되었습니다',
+          };
+          showToast(errorMessages[error.code] || '현재 위치를 가져올 수 없습니다', 'error');
           reject(error);
         },
         Platform.OS === 'android'
           ? {
-              enableHighAccuracy: true,
-              timeout: 20000, // Android: 20초로 증가
-              maximumAge: 1000, // Android: 신선한 위치 정보 사용
+              enableHighAccuracy: false, // 네트워크 기반 위치 (더 빠름)
+              timeout: 30000, // Android: 30초로 증가
+              maximumAge: 10000, // 10초 이내 캐시 사용
             }
           : {
-              enableHighAccuracy: true,
+              enableHighAccuracy: false,
               timeout: 5000,
-              maximumAge: 0,
+              maximumAge: 10000,
             },
       );
     });

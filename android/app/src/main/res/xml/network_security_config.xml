@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<network-security-config>
+    <!-- 개발 및 테스트를 위해 특정 도메인에 대한 cleartext(HTTP) 트래픽 허용 -->
+    <domain-config cleartextTrafficPermitted="true">
+        <domain includeSubdomains="true">devse.kr</domain>
+        <domain includeSubdomains="true">10.0.2.2</domain> <!-- Android 에뮬레이터 localhost -->
+        <domain includeSubdomains="true">localhost</domain>
+    </domain-config>
+
+    <!-- 프로덕션 환경에서는 HTTPS 사용 권장 -->
+    <!-- 나머지 모든 도메인은 기본적으로 HTTPS만 허용 -->
+</network-security-config>

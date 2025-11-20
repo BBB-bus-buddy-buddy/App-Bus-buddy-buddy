@@ -3,8 +3,8 @@ import {PassengerLocationDTO} from './dto/PassengerLocationDTO';
 
 // API 및 WebSocket 기본 URL 설정
 const API_BASE_URL = Platform.select({
-  ios: 'http://devse.kr:12589',
-  android: 'http://devse.kr:12589',
+  ios: 'http://devse.kr:23589',
+  android: 'http://devse.kr:23589',
 });
 const WS_BASE_URL = API_BASE_URL?.replace('http', 'ws');
 

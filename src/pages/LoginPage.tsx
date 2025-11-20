@@ -33,8 +33,8 @@ interface UserResponse {
 }
 
 const API_BASE_URL = Platform.select({
-  ios: 'http://devse.kr:12589',
-  android: 'http://devse.kr:12589', // Android 에뮬레이터에서 localhost 접근용
+  ios: 'http://devse.kr:23589',
+  android: 'http://devse.kr:23589', // Android 에뮬레이터에서 localhost 접근용
 }) as string;
 
 const GOOGLE_LOGIN_URL = `${API_BASE_URL}/oauth2/authorization/google`;
@@ -100,10 +100,12 @@ const LoginPage: React.FC<LoginPageProps> = ({onLoginSuccess}) => {
           await AsyncStorage.removeItem('token');
           // 로그인 화면에 그대로 유지됨
         }
+      } else {
+        await AsyncStorage.removeItem('token');
       }
-      // 토큰이 없으면 로그인 화면에 그대로 유지
     } catch (error) {
       console.error('Token check error:', error);
+      await AsyncStorage.removeItem('token');
       // AsyncStorage 접근 실패 시에도 앱은 계속 실행
     } finally {
       setLoading(false);

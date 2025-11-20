@@ -504,12 +504,12 @@ npm start
 
 ### API Base URL
 ```typescript
-const API_BASE_URL = 'http://devse.kr:12589'
+const API_BASE_URL = 'http://devse.kr:23589'
 ```
 
 ### WebSocket URL
 ```
-ws://devse.kr:12589/ws/passenger
+ws://devse.kr:23589/ws/passenger
 ```
 
 ---
